@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Geo Image Classifier</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="app-title">
+        <div class="workspace__intro">
+          <p class="eyebrow">Geological image screening</p>
+          <h1 id="app-title">Image Processing is Fun</h1>
+          <p class="lede">
+            Drop a field photo, thin-section snapshot, core image, or landscape view. Start with geology and geomorphology now, then add more class packs as the catalog grows.
+          </p>
+        </div>
+
+        <div class="status-strip" role="status" aria-live="polite">
+          <span id="modelMode">Geology pack active</span>
+          <span id="imageStatus">No image loaded</span>
+          <span id="catalogStatus">18 classes ready</span>
+        </div>
+
+        <div class="tool-grid">
+          <section class="image-panel" aria-label="Image input and preview">
+            <div id="dropZone" class="drop-zone" tabindex="0">
+              <input id="imageInput" type="file" accept="image/*" />
+              <div class="drop-zone__copy">
+                <strong>Drop or paste an image here</strong>
+                <span>Choose a file, drag an image, or press Ctrl+V.</span>
+              </div>
+              <button class="button button--primary" type="button" id="chooseImage">Choose image</button>
+            </div>
+
+            <figure class="preview-frame" id="previewFrame" aria-label="Image preview">
+              <div class="canvas-viewport" id="canvasViewport">
+                <canvas id="previewCanvas" width="960" height="640"></canvas>
+                <div id="calloutLayer" class="callout-layer" aria-hidden="true"></div>
+              </div>
+              <figcaption id="previewCaption">Load an image or try a demo sample.</figcaption>
+            </figure>
+
+            <section class="metadata-panel" aria-label="Image metadata">
+              <div class="panel-heading">
+                <h2>Image Metadata</h2>
+                <span id="metadataNote">Load an image to read source metadata.</span>
+              </div>
+              <div id="metadataGrid" class="metadata-grid"></div>
+            </section>
+
+            <div class="sample-row" aria-label="Demo images">
+              <button class="sample-tile" type="button" data-sample="granite">
+                <img alt="Granite demo sample" id="sample-granite" />
+                <span>Granite</span>
+              </button>
+              <button class="sample-tile" type="button" data-sample="sandstone">
+                <img alt="Sandstone demo sample" id="sample-sandstone" />
+                <span>Sandstone</span>
+              </button>
+              <button class="sample-tile" type="button" data-sample="gneiss">
+                <img alt="Gneiss demo sample" id="sample-gneiss" />
+                <span>Gneiss</span>
+              </button>
+              <button class="sample-tile" type="button" data-sample="basalt">
+                <img alt="Basalt demo sample" id="sample-basalt" />
+                <span>Basalt</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="results-panel" aria-label="Classification results">
+            <div class="control-line">
+              <label for="packSelect">Analysis pack</label>
+              <select id="packSelect">
+                <option value="geology">Geology</option>
+                <option value="geomorphology">Geomorphology</option>
+                <option value="classification">Classification</option>
+              </select>
+            </div>
+
+            <form class="pixel-form mode-section" id="pixelClassForm" data-visible-modes="classification" novalidate>
+              <h2>Pixel Value Classification</h2>
+              <p class="form-message">Classes are built from the lowest to highest grayscale pixel value, painted onto the image, and labeled with the visible Geology and Geomorphology matches. Use the checkboxes in the results to show or hide each pixel class.</p>
+              <div class="form-row">
+                <label for="pixelClassCount">Number of classes</label>
+                <input id="pixelClassCount" name="pixelClassCount" type="number" min="1" step="1" value="5" />
+              </div>
+              <button class="button" type="submit">Classify pixel values</button>
+              <div class="form-row classification-source-row">
+                <label for="classificationSourceSelect">View classification from</label>
+                <select id="classificationSourceSelect" name="classificationSourceSelect">
+                  <option value="both">Default: Geology + Geomorphology</option>
+                  <option value="geology">Geology only</option>
+                  <option value="geomorphology">Geomorphology only</option>
+                </select>
+              </div>
+              <p id="pixelClassMessage" class="form-message">Load an image to classify pixel ranges.</p>
+              <div id="pixelClassResults" class="pixel-class-results" aria-live="polite"></div>
+              <div class="classification-next">
+                <h2>Next Classification Steps</h2>
+                <ul class="classification-next-list">
+                  <li>Review the geology labels and rename any class that does not match the field context.</li>
+                  <li>Export a color class map, pixel counts, and area percentages.</li>
+                  <li>Add training examples so future images use learned geology classes instead of heuristic matches.</li>
+                  <li>Bring in scale, coordinates, DEM, slope, or field notes to separate similar classes.</li>
+                </ul>
+              </div>
+            </form>
+
+            <div class="result-summary mode-section" id="resultSummary" data-visible-modes="geology geomorphology">
+              <p class="empty-state">Results will appear after an image is analyzed.</p>
+            </div>
+
+            <div class="metrics-grid mode-section" id="metricsGrid" data-visible-modes="geology geomorphology" aria-label="Image observations"></div>
+
+            <div class="panel-block geology-range-block mode-section" id="geologyRangePanel" data-visible-modes="geology">
+              <h2>Geology Pixel Ranges</h2>
+              <p class="interpretation-summary">Use the geology matches as a starting point for pixel-based classification.</p>
+              <div id="geologyRangeResults" class="geology-range-results">
+                <p class="form-message">Load an image to estimate pixel ranges for geology classes.</p>
+              </div>
+            </div>
+
+            <div class="panel-block geomorphology-block mode-section" data-visible-modes="geomorphology">
+              <h2>Geomorphological Interpretation</h2>
+              <p id="geomorphologySummary" class="interpretation-summary">Load an image to extract surface-form notes.</p>
+              <ul id="geomorphologyList" class="interpretation-list">
+                <li>Potential landform, drainage, lineament, weathering, and surface roughness cues will appear here.</li>
+              </ul>
+            </div>
+
+            <div class="panel-block mode-section" data-visible-modes="geology geomorphology">
+              <h2>Review Notes</h2>
+              <ul id="evidenceList" class="evidence-list">
+                <li>Use this as first-pass screening, then confirm with field notes, scale, sample location, and lab checks.</li>
+              </ul>
+            </div>
+
+            <form class="category-form mode-section" id="categoryForm" data-visible-modes="geology geomorphology">
+              <h2>Add A Class</h2>
+              <div class="form-row">
+                <label for="newClassName">Class name</label>
+                <input id="newClassName" name="newClassName" type="text" placeholder="Example: Dolomite" maxlength="40" />
+              </div>
+              <div class="form-row">
+                <label for="newClassFamily">Family</label>
+                <input id="newClassFamily" name="newClassFamily" type="text" placeholder="Example: Sedimentary" maxlength="40" />
+              </div>
+              <button class="button" type="submit">Add to active pack</button>
+              <p id="categoryMessage" class="form-message">New classes join the catalog immediately in this session.</p>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="zoom-toolbar" aria-label="Image zoom controls">
+      <button class="zoom-button" type="button" id="zoomOut" aria-label="Zoom out">-</button>
+      <span id="zoomLevel">100%</span>
+      <button class="zoom-button" type="button" id="zoomIn" aria-label="Zoom in">+</button>
+      <button class="zoom-button zoom-button--wide" type="button" id="zoomReset">Reset</button>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
