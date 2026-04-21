@@ -12,6 +12,7 @@ const chooseImage = document.querySelector("#chooseImage");
 const previewCaption = document.querySelector("#previewCaption");
 const metadataGrid = document.querySelector("#metadataGrid");
 const metadataNote = document.querySelector("#metadataNote");
+const metadataSummaryText = document.querySelector("#metadataSummary");
 const bandComposerNote = document.querySelector("#bandComposerNote");
 const bandPresetSelect = document.querySelector("#bandPresetSelect");
 const bandRedSelect = document.querySelector("#bandRedSelect");
@@ -30,8 +31,15 @@ const resultSummary = document.querySelector("#resultSummary");
 const metricsGrid = document.querySelector("#metricsGrid");
 const evidenceList = document.querySelector("#evidenceList");
 const geologyRangeResults = document.querySelector("#geologyRangeResults");
+const structuralGeologySummary = document.querySelector("#structuralGeologySummary");
+const structuralGeologyList = document.querySelector("#structuralGeologyList");
 const geomorphologySummary = document.querySelector("#geomorphologySummary");
 const geomorphologyList = document.querySelector("#geomorphologyList");
+const sceneContextPanel = document.querySelector("#sceneContextPanel");
+const landscapeContextSelect = document.querySelector("#landscapeContextSelect");
+const sceneClueGrid = document.querySelector("#sceneClueGrid");
+const sceneContextStatus = document.querySelector("#sceneContextStatus");
+const sceneContextSummary = document.querySelector("#sceneContextSummary");
 const pixelClassForm = document.querySelector("#pixelClassForm");
 const classificationSourceSelect = document.querySelector("#classificationSourceSelect");
 const pixelClassCount = document.querySelector("#pixelClassCount");
@@ -67,6 +75,8 @@ const state = {
   lastCallouts: [],
   classificationOptions: [],
   classificationLabelSource: "both",
+  primaryLandscape: "auto",
+  sceneClues: [],
   zoom: 1,
   bandComposer: {
     presetId: "custom",
@@ -244,6 +254,27 @@ const categoryPacks = {
         weights: { brightness: 0.42, saturation: 0.24, warm: 0.36, texture: 0.74, edge: 0.9, banding: 0.46, darkness: 0.42 },
       },
       {
+        id: "fault-lineament",
+        label: "Fault Line / Lineament",
+        family: "Structure",
+        cues: ["long straight to gently curving structural trace", "persistent tonal lineament", "possible fault line or fracture-controlled alignment"],
+        weights: { brightness: 0.44, saturation: 0.2, warm: 0.34, texture: 0.58, edge: 0.94, banding: 0.6, darkness: 0.38 },
+      },
+      {
+        id: "joint-fracture-set",
+        label: "Joint / Fracture Set",
+        family: "Structure",
+        cues: ["closely spaced linear breaks", "repeated fracture traces", "joint-controlled surface pattern"],
+        weights: { brightness: 0.42, saturation: 0.2, warm: 0.34, texture: 0.62, edge: 0.84, banding: 0.48, darkness: 0.4 },
+      },
+      {
+        id: "shear-zone",
+        label: "Shear Zone",
+        family: "Structure",
+        cues: ["elongate deformed fabric", "strong planar banding", "possible sheared or mylonitic zone"],
+        weights: { brightness: 0.46, saturation: 0.22, warm: 0.38, texture: 0.74, edge: 0.72, banding: 0.9, darkness: 0.34 },
+      },
+      {
         id: "stratified-outcrop",
         label: "Stratified Outcrop",
         family: "Outcrop",
@@ -308,7 +339,7 @@ const categoryPacks = {
         id: "snow-covered-mountain-terrain",
         label: "Snow-Covered Mountain Terrain",
         family: "Geomorphology",
-        cues: ["bright snow-covered relief", "strong ridge-shadow contrast", "high alpine terrain expression"],
+        cues: ["bright snow-covered relief", "strong ridge-shadow contrast", "high mountain terrain expression"],
         weights: { brightness: 0.56, saturation: 0.12, warm: 0.48, texture: 0.86, edge: 0.92, banding: 0.18, darkness: 0.42 },
       },
       {
@@ -320,16 +351,16 @@ const categoryPacks = {
       },
       {
         id: "glacial-valley",
-        label: "Glacial Valley",
+        label: "Valley",
         family: "Geomorphology",
-        cues: ["broad trough-like valley corridor", "snow-ice or meltwater path", "shadowed alpine incision"],
+        cues: ["broad valley or ravine corridor", "snow-ice or meltwater path", "shadowed mountain incision"],
         weights: { brightness: 0.5, saturation: 0.12, warm: 0.46, texture: 0.82, edge: 0.9, banding: 0.22, darkness: 0.5 },
       },
       {
         id: "alpine-ridge-arete",
-        label: "Alpine Ridge / Arete",
+        label: "Mountain Ridge / Crestline",
         family: "Geomorphology",
-        cues: ["knife-edge ridge or arete expression", "sharp crest-line contrast", "high-relief ridge-shadow boundary"],
+        cues: ["sharp ridge or crestline expression", "sharp crest-line contrast", "high-relief ridge-shadow boundary"],
         weights: { brightness: 0.44, saturation: 0.12, warm: 0.46, texture: 0.78, edge: 0.96, banding: 0.28, darkness: 0.56 },
       },
       {
@@ -455,6 +486,36 @@ const sampleDefinitions = {
     mode: "dark-fine",
   },
 };
+
+const landscapeContextOptions = [
+  { id: "auto", label: "Auto" },
+  { id: "plain", label: "Plain" },
+  { id: "plateau", label: "Plateau" },
+  { id: "hill", label: "Hill" },
+  { id: "hill-range", label: "Hill Range" },
+  { id: "sea-coast", label: "Sea / Coastal" },
+  { id: "water-body", label: "Water Body" },
+  { id: "snow-ice", label: "Snow / Ice" },
+];
+
+const sceneClueDefinitions = [
+  {
+    id: "drainage-incision",
+    label: "Drainage / valleys",
+  },
+  {
+    id: "linear-ridges-breaks",
+    label: "Ridges / escarpments",
+  },
+  {
+    id: "bench-plateau",
+    label: "Stepped slopes",
+  },
+  {
+    id: "volcanic-surface",
+    label: "Dark volcanic surface",
+  },
+];
 
 function createBandComposerChannel(bandIndex = 0) {
   return {
@@ -865,6 +926,94 @@ function previewCaptionText() {
   return `${state.imageName} - ${compositeBandLabels().join(" / ")}`;
 }
 
+function selectedSceneClueSet() {
+  return new Set(state.sceneClues);
+}
+
+function selectedLandscapeContextLabel() {
+  return landscapeContextOptions.find((item) => item.id === state.primaryLandscape)?.label || "Auto";
+}
+
+function sceneContextStatusText() {
+  const parts = [];
+  if (state.primaryLandscape !== "auto") {
+    parts.push(`Major landform: ${selectedLandscapeContextLabel()}`);
+  }
+
+  if (state.sceneClues.length) {
+    const labels = sceneClueDefinitions
+      .filter((item) => state.sceneClues.includes(item.id))
+      .map((item) => item.label);
+    parts.push(`Hints: ${labels.join(", ")}`);
+  }
+
+  if (!parts.length) {
+    return "Using image evidence only.";
+  }
+
+  if (state.primaryLandscape === "sea-coast" || state.primaryLandscape === "water-body") {
+    return `${parts.join(". ")}. This mainly softens mountain-style guesses until dedicated water classes are added.`;
+  }
+
+  return `${parts.join(". ")}. These choices softly guide geomorphology.`;
+}
+
+function sceneContextHeaderSummaryText() {
+  const parts = [];
+
+  if (state.primaryLandscape !== "auto") {
+    parts.push(selectedLandscapeContextLabel());
+  }
+
+  if (state.sceneClues.length) {
+    const labels = sceneClueDefinitions
+      .filter((item) => state.sceneClues.includes(item.id))
+      .map((item) => item.label);
+    const visibleLabels = labels.slice(0, 2).join(", ");
+    const overflow = labels.length > 2 ? ` +${labels.length - 2}` : "";
+    parts.push(`${visibleLabels}${overflow}`);
+  }
+
+  return parts.length ? parts.join(" | ") : "Auto";
+}
+
+function renderSceneClueControls() {
+  landscapeContextSelect.innerHTML = landscapeContextOptions
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`)
+    .join("");
+  landscapeContextSelect.value = landscapeContextOptions.some((item) => item.id === state.primaryLandscape)
+    ? state.primaryLandscape
+    : "auto";
+
+  sceneClueGrid.innerHTML = sceneClueDefinitions.map((item) => {
+    const checked = state.sceneClues.includes(item.id) ? "checked" : "";
+    return `
+      <label class="scene-clue">
+        <input type="checkbox" name="sceneClue" value="${escapeHtml(item.id)}" ${checked} />
+        <span>${escapeHtml(item.label)}</span>
+      </label>
+    `;
+  }).join("");
+  sceneContextStatus.textContent = sceneContextStatusText();
+  sceneContextSummary.textContent = sceneContextHeaderSummaryText();
+}
+
+function shouldShowSceneContext() {
+  if (state.activePack === "geomorphology") {
+    return true;
+  }
+  if (state.activePack !== "classification") {
+    return false;
+  }
+  return state.classificationLabelSource !== "geology";
+}
+
+function updateSceneContextVisibility() {
+  const shouldShow = shouldShowSceneContext();
+  sceneContextPanel.classList.toggle("is-hidden", !shouldShow);
+  sceneContextPanel.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+}
+
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
@@ -886,8 +1035,11 @@ function setup() {
   renderEmptyMetrics();
   renderEmptyMetadata();
   renderEmptyGeologyRanges();
+  renderEmptyStructuralGeology();
   renderEmptyGeomorphology();
   renderBandComposerControls();
+  renderSceneClueControls();
+  updateSceneContextVisibility();
 }
 
 function bindEvents() {
@@ -969,6 +1121,32 @@ function bindEvents() {
     applyBandComposerState();
   });
 
+  landscapeContextSelect.addEventListener("change", () => {
+    state.primaryLandscape = landscapeContextSelect.value;
+    renderSceneClueControls();
+    if (state.imageLoaded) {
+      analyzeCurrentCanvas();
+      if (state.activePack === "classification") {
+        runPixelClassification();
+      }
+    }
+  });
+
+  sceneClueGrid.addEventListener("change", (event) => {
+    if (!event.target.matches("input[name='sceneClue']")) {
+      return;
+    }
+    state.sceneClues = Array.from(sceneClueGrid.querySelectorAll("input[name='sceneClue']:checked"))
+      .map((input) => input.value);
+    renderSceneClueControls();
+    if (state.imageLoaded) {
+      analyzeCurrentCanvas();
+      if (state.activePack === "classification") {
+        runPixelClassification();
+      }
+    }
+  });
+
   pixelClassForm.addEventListener("submit", (event) => {
     event.preventDefault();
     runPixelClassification();
@@ -977,6 +1155,7 @@ function bindEvents() {
   classificationSourceSelect.addEventListener("change", () => {
     state.classificationLabelSource = classificationSourceSelect.value;
     state.lastPixelClassification = null;
+    updateVisibleSections();
     if (state.imageLoaded) {
       analyzeCurrentCanvas();
       if (state.activePack === "classification") {
@@ -2733,6 +2912,7 @@ function updateVisibleSections() {
     const modes = (section.dataset.visibleModes || "").split(/\s+/);
     section.classList.toggle("is-hidden", !modes.includes(state.activePack));
   });
+  updateSceneContextVisibility();
 }
 
 function setZoom(nextZoom) {
@@ -2874,6 +3054,326 @@ function describeTone(red, green, blue) {
   return "mixed neutral";
 }
 
+function geomorphologySignals(features) {
+  const relief = clamp(features.edge * 0.58 + features.texture * 0.3 + features.banding * 0.18);
+  const plain = clamp(
+    clamp((0.44 - features.edge) / 0.24) * 0.54 +
+    clamp((0.34 - features.texture) / 0.2) * 0.34 +
+    clamp((0.48 - features.banding) / 0.34) * 0.12
+  );
+  const snow = clamp(
+    clamp((features.brightness - 0.38) / 0.26) * 0.42 +
+    clamp((0.24 - features.saturation) / 0.18) * 0.34 +
+    clamp((features.edge - 0.28) / 0.34) * 0.24
+  );
+  const drainage = clamp(features.edge * 0.5 + features.texture * 0.28 + features.banding * 0.22);
+  const ridge = clamp(features.edge * 0.68 + features.texture * 0.16 + features.banding * 0.16);
+  const bench = clamp(features.banding * 0.62 + features.edge * 0.2 + features.texture * 0.18);
+  const volcanic = clamp(features.darkness * 0.42 + features.texture * 0.34 + features.edge * 0.18 + features.warm * 0.12);
+  const sand = clamp(features.brightness * 0.32 + features.warm * 0.42 + clamp((0.42 - features.edge) / 0.3) * 0.26);
+  const linear = clamp(features.edge * 0.66 + features.banding * 0.2 + features.texture * 0.14);
+
+  return {
+    relief,
+    plain,
+    snow,
+    drainage,
+    ridge,
+    bench,
+    volcanic,
+    sand,
+    linear,
+  };
+}
+
+function clueBias(clueSet, boosts = [], penalties = []) {
+  let bias = 0;
+  boosts.forEach(({ id, amount }) => {
+    if (clueSet.has(id)) {
+      bias += amount;
+    }
+  });
+  penalties.forEach(({ id, amount }) => {
+    if (clueSet.has(id)) {
+      bias -= amount;
+    }
+  });
+  return bias;
+}
+
+function primaryLandscapeBias(categoryId, primaryLandscape) {
+  let bias = 0;
+  let gatePenalty = 0;
+  const highMountainCategories = new Set([
+    "snow-covered-mountain-terrain",
+    "glacier-icefield",
+    "glacial-valley",
+    "alpine-ridge-arete",
+  ]);
+
+  switch (primaryLandscape) {
+    case "plain":
+      if (categoryId === "smooth-plain") bias += 0.24;
+      if (categoryId === "weathered-regolith") bias += 0.1;
+      if (categoryId === "alluvial-fan") bias += 0.08;
+      if (highMountainCategories.has(categoryId) || categoryId === "fault-scarp") gatePenalty -= 0.16;
+      if (categoryId === "dissected-terrain") bias -= 0.08;
+      break;
+    case "plateau":
+      if (categoryId === "stratified-slope") bias += 0.22;
+      if (categoryId === "volcanic-flow-surface") bias += 0.12;
+      if (categoryId === "weathered-regolith") bias += 0.08;
+      if (categoryId === "smooth-plain") bias += 0.04;
+      if (highMountainCategories.has(categoryId)) gatePenalty -= 0.18;
+      break;
+    case "hill":
+      if (categoryId === "dissected-terrain") bias += 0.16;
+      if (categoryId === "drainage-trace") bias += 0.08;
+      if (categoryId === "structural-lineament") bias += 0.05;
+      if (categoryId === "fault-scarp") bias += 0.04;
+      if (categoryId === "smooth-plain") gatePenalty -= 0.1;
+      if (categoryId === "glacier-icefield") gatePenalty -= 0.08;
+      break;
+    case "hill-range":
+      if (categoryId === "dissected-terrain") bias += 0.12;
+      if (categoryId === "alpine-ridge-arete") bias += 0.16;
+      if (categoryId === "glacial-valley") bias += 0.12;
+      if (categoryId === "structural-lineament" || categoryId === "fault-scarp") bias += 0.08;
+      if (categoryId === "snow-covered-mountain-terrain") bias += 0.08;
+      if (categoryId === "smooth-plain" || categoryId === "dune-sand-sheet") gatePenalty -= 0.14;
+      break;
+    case "sea-coast":
+      if (categoryId === "smooth-plain") bias += 0.12;
+      if (categoryId === "alluvial-fan") bias += 0.08;
+      if (categoryId === "drainage-trace") bias += 0.08;
+      if (categoryId === "weathered-regolith") bias += 0.04;
+      if (highMountainCategories.has(categoryId) || categoryId === "fault-scarp") gatePenalty -= 0.18;
+      break;
+    case "water-body":
+      if (categoryId === "drainage-trace") bias += 0.18;
+      if (categoryId === "smooth-plain") bias += 0.06;
+      if (categoryId === "alluvial-fan") bias += 0.04;
+      if (highMountainCategories.has(categoryId) || categoryId === "volcanic-flow-surface") gatePenalty -= 0.18;
+      break;
+    case "snow-ice":
+      if (categoryId === "snow-covered-mountain-terrain") bias += 0.22;
+      if (categoryId === "glacier-icefield") bias += 0.24;
+      if (categoryId === "glacial-valley") bias += 0.18;
+      if (categoryId === "alpine-ridge-arete") bias += 0.1;
+      if (categoryId === "smooth-plain" || categoryId === "dune-sand-sheet" || categoryId === "weathered-regolith") {
+        gatePenalty -= 0.2;
+      }
+      break;
+    default:
+      break;
+  }
+
+  return { bias, gatePenalty };
+}
+
+function applyGeomorphologyAdjustments(category, features) {
+  const clueSet = selectedSceneClueSet();
+  const signals = geomorphologySignals(features);
+  const landscapeBias = primaryLandscapeBias(category.id, state.primaryLandscape);
+  let bias = landscapeBias.bias;
+  let gatePenalty = landscapeBias.gatePenalty;
+
+  switch (category.id) {
+    case "smooth-plain":
+      bias += clueBias(clueSet,
+        [
+          { id: "low-relief-plain", amount: 0.18 },
+          { id: "bench-plateau", amount: 0.05 },
+        ],
+        [
+          { id: "steep-mountain", amount: 0.16 },
+          { id: "snow-ice", amount: 0.14 },
+          { id: "linear-ridges-breaks", amount: 0.08 },
+        ]);
+      if (signals.plain < 0.42) {
+        gatePenalty -= 0.08;
+      }
+      if (signals.relief > 0.62) {
+        gatePenalty -= 0.12;
+      }
+      break;
+    case "stratified-slope":
+      bias += clueBias(clueSet,
+        [
+          { id: "bench-plateau", amount: 0.16 },
+          { id: "linear-ridges-breaks", amount: 0.08 },
+        ],
+        [
+          { id: "snow-ice", amount: 0.08 },
+        ]);
+      if (signals.bench < 0.34) {
+        gatePenalty -= 0.06;
+      }
+      break;
+    case "dissected-terrain":
+      bias += clueBias(clueSet,
+        [
+          { id: "drainage-incision", amount: 0.12 },
+          { id: "steep-mountain", amount: 0.06 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.12 },
+        ]);
+      if (signals.relief < 0.34) {
+        gatePenalty -= 0.08;
+      }
+      break;
+    case "alluvial-fan":
+      bias += clueBias(clueSet,
+        [
+          { id: "drainage-incision", amount: 0.1 },
+          { id: "low-relief-plain", amount: 0.05 },
+        ],
+        [
+          { id: "snow-ice", amount: 0.1 },
+          { id: "volcanic-surface", amount: 0.08 },
+        ]);
+      break;
+    case "drainage-trace":
+      bias += clueBias(clueSet,
+        [
+          { id: "drainage-incision", amount: 0.16 },
+          { id: "linear-ridges-breaks", amount: 0.04 },
+        ],
+        [
+          { id: "sand-sheet", amount: 0.06 },
+        ]);
+      if (signals.drainage < 0.34) {
+        gatePenalty -= 0.06;
+      }
+      break;
+    case "snow-covered-mountain-terrain":
+      bias += clueBias(clueSet,
+        [
+          { id: "steep-mountain", amount: 0.16 },
+          { id: "snow-ice", amount: 0.2 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.22 },
+          { id: "sand-sheet", amount: 0.12 },
+          { id: "volcanic-surface", amount: 0.06 },
+        ]);
+      if (signals.relief < 0.5 || signals.snow < 0.34) {
+        gatePenalty -= 0.28;
+      }
+      break;
+    case "glacier-icefield":
+      bias += clueBias(clueSet,
+        [
+          { id: "snow-ice", amount: 0.22 },
+          { id: "steep-mountain", amount: 0.08 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.22 },
+          { id: "volcanic-surface", amount: 0.1 },
+          { id: "sand-sheet", amount: 0.14 },
+        ]);
+      if (signals.snow < 0.44) {
+        gatePenalty -= 0.32;
+      }
+      if (signals.relief < 0.36 && !clueSet.has("snow-ice")) {
+        gatePenalty -= 0.12;
+      }
+      break;
+    case "glacial-valley":
+      bias += clueBias(clueSet,
+        [
+          { id: "steep-mountain", amount: 0.14 },
+          { id: "snow-ice", amount: 0.14 },
+          { id: "drainage-incision", amount: 0.08 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.24 },
+          { id: "volcanic-surface", amount: 0.08 },
+          { id: "sand-sheet", amount: 0.12 },
+        ]);
+      if (signals.relief < 0.48 || signals.drainage < 0.42 || signals.snow < 0.26) {
+        gatePenalty -= 0.3;
+      }
+      break;
+    case "alpine-ridge-arete":
+      bias += clueBias(clueSet,
+        [
+          { id: "steep-mountain", amount: 0.16 },
+          { id: "linear-ridges-breaks", amount: 0.16 },
+          { id: "snow-ice", amount: 0.06 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.24 },
+          { id: "bench-plateau", amount: 0.08 },
+          { id: "sand-sheet", amount: 0.12 },
+          { id: "volcanic-surface", amount: 0.06 },
+        ]);
+      if (signals.relief < 0.52 || signals.ridge < 0.52) {
+        gatePenalty -= 0.3;
+      }
+      break;
+    case "dune-sand-sheet":
+      bias += clueBias(clueSet,
+        [
+          { id: "sand-sheet", amount: 0.2 },
+          { id: "low-relief-plain", amount: 0.05 },
+        ],
+        [
+          { id: "snow-ice", amount: 0.16 },
+          { id: "drainage-incision", amount: 0.08 },
+        ]);
+      if (signals.sand < 0.34) {
+        gatePenalty -= 0.08;
+      }
+      break;
+    case "weathered-regolith":
+      bias += clueBias(clueSet,
+        [
+          { id: "low-relief-plain", amount: 0.04 },
+          { id: "bench-plateau", amount: 0.06 },
+        ],
+        [
+          { id: "snow-ice", amount: 0.08 },
+        ]);
+      break;
+    case "volcanic-flow-surface":
+      bias += clueBias(clueSet,
+        [
+          { id: "volcanic-surface", amount: 0.2 },
+          { id: "bench-plateau", amount: 0.08 },
+        ],
+        [
+          { id: "snow-ice", amount: 0.14 },
+          { id: "low-relief-plain", amount: 0.06 },
+        ]);
+      if (signals.volcanic < 0.38) {
+        gatePenalty -= 0.1;
+      }
+      break;
+    case "structural-lineament":
+    case "fault-scarp":
+      bias += clueBias(clueSet,
+        [
+          { id: "linear-ridges-breaks", amount: 0.18 },
+          { id: "steep-mountain", amount: 0.04 },
+        ],
+        [
+          { id: "low-relief-plain", amount: 0.04 },
+        ]);
+      if (signals.linear < 0.34) {
+        gatePenalty -= 0.06;
+      }
+      break;
+    default:
+      break;
+  }
+
+  return {
+    score: clamp(category.score + bias + gatePenalty),
+  };
+}
+
 function classifyWithHeuristics(features, pack) {
   const featureKeys = ["brightness", "saturation", "warm", "texture", "edge", "banding", "darkness"];
   const scored = pack.categories.map((category) => {
@@ -2882,11 +3382,19 @@ function classifyWithHeuristics(features, pack) {
       return sum + distanceScore(features[key], category.weights[key], tolerance);
     }, 0);
     const score = closeness / featureKeys.length;
-    return {
+    const scoredCategory = {
       ...category,
       score,
       confidence: confidenceFromScore(score),
     };
+
+    if (pack === categoryPacks.geomorphology || category.sourcePack === "geomorphology") {
+      const adjusted = applyGeomorphologyAdjustments(scoredCategory, features);
+      scoredCategory.score = adjusted.score;
+      scoredCategory.confidence = confidenceFromScore(adjusted.score);
+    }
+
+    return scoredCategory;
   });
 
   return scored.sort((a, b) => b.score - a.score);
@@ -2896,9 +3404,21 @@ function confidenceFromScore(score) {
   return clamp(0.18 + score * 0.78);
 }
 
-function renderResults(results, features) {
+function visibleAlternativesForResults(results) {
   const [top, ...alternatives] = results;
-  const visibleAlternatives = alternatives.slice(0, 4);
+  if (state.activePack !== "geomorphology") {
+    return alternatives.slice(0, 4);
+  }
+
+  return alternatives
+    .filter((item) => item.confidence >= Math.max(0.28, top.confidence - 0.16))
+    .filter((item) => item.score >= Math.max(0.18, top.score - 0.2))
+    .slice(0, 4);
+}
+
+function renderResults(results, features) {
+  const [top] = results;
+  const visibleAlternatives = visibleAlternativesForResults(results);
   const confidenceText = percent(top.confidence);
 
   if (state.activePack !== "classification") {
@@ -2931,6 +3451,7 @@ function renderResults(results, features) {
   }
   if (state.activePack === "geology") {
     renderGeologyPixelRanges([top, ...visibleAlternatives], features);
+    renderStructuralGeology(results, features);
   }
   renderGeomorphology(top, features);
   renderEvidence(top, features);
@@ -3467,6 +3988,7 @@ function renderMetrics(features) {
 
 function renderEmptyMetadata() {
   metadataNote.textContent = "Load an image to read source metadata.";
+  metadataSummaryText.textContent = "No image loaded";
   metadataGrid.innerHTML = [
     ["Source bands", "Waiting"],
     ["Analysis bands", "Waiting"],
@@ -3497,6 +4019,7 @@ function renderImageMetadata(metadata = state.imageMetadata) {
 
   metadataGrid.innerHTML = rows.map(([label, value]) => metadataRow(label, value)).join("");
   metadataNote.textContent = metadataSummary(metadata);
+  metadataSummaryText.textContent = metadataHeaderSummaryText(metadata);
 }
 
 function metadataRow(label, value) {
@@ -3532,6 +4055,30 @@ function metadataSummary(metadata) {
   return "Source metadata is separated from browser display bands.";
 }
 
+function metadataHeaderSummaryText(metadata) {
+  if (!metadata) {
+    return "No image loaded";
+  }
+
+  const bandCount = metadata.workingBandCount || metadata.encodedBandCount || metadata.displayBandCount || 0;
+  const bandLabels = metadata.workingBandLabels?.length
+    ? metadata.workingBandLabels
+    : metadata.encodedBandLabels?.length
+      ? metadata.encodedBandLabels
+      : metadata.displayBandLabels || [];
+  const width = metadata.decodedWidth || metadata.encodedWidth;
+  const height = metadata.decodedHeight || metadata.encodedHeight;
+
+  const parts = [];
+  if (bandCount) {
+    parts.push(formatBandSummary(bandCount, bandLabels));
+  }
+  if (width && height) {
+    parts.push(formatDimensionsSummary(width, height));
+  }
+  return parts.length ? parts.join(" | ") : "No image loaded";
+}
+
 function formatMetadataFormat(metadata) {
   const parts = [metadata.format, metadata.colorModel].filter(Boolean);
   return parts.length ? parts.join(" - ") : "Unknown";
@@ -3539,6 +4086,19 @@ function formatMetadataFormat(metadata) {
 
 function formatDimensions(width, height) {
   return width && height ? `${width.toLocaleString()} x ${height.toLocaleString()} px` : "Unknown";
+}
+
+function formatDimensionsSummary(width, height) {
+  return width && height ? `${width.toLocaleString()} x ${height.toLocaleString()}` : "Unknown";
+}
+
+function formatBandSummary(count, labels = []) {
+  if (!count) {
+    return "Bands unknown";
+  }
+
+  const conciseLabels = labels.length ? labels.join(", ") : "Unlabeled";
+  return `${count} band${count === 1 ? "" : "s"}: ${conciseLabels}`;
 }
 
 function formatBandList(count, labels = []) {
@@ -3741,9 +4301,9 @@ function interpretGeomorphology(top, features) {
 
   if (hasColdBrightTerrain) {
     landformHints.push("snow or ice cover");
-    landformHints.push("shadow-enhanced alpine relief");
-    notes.push("Extractable feature: bright low-saturation slopes with strong ridge-shadow contrast can indicate snowfields, glacier ice, firn cover, or seasonal snow on steep alpine terrain.");
-    notes.push("Extractable feature: alternating bright snow and dark shadow bands strengthen interpretation of high-relief ridges, cirques, glacial walls, or deeply incised alpine valleys.");
+    landformHints.push("shadow-enhanced mountain relief");
+    notes.push("Extractable feature: bright low-saturation slopes with strong ridge-shadow contrast can indicate snowfields, glacier ice, firn cover, or seasonal snow on steep mountain terrain.");
+    notes.push("Extractable feature: alternating bright snow and dark shadow bands strengthen interpretation of high-relief ridges, steep hollows, ice-cut walls, ravines, or deeply incised mountain valleys.");
   }
 
   if (top.family === "Structure") {
@@ -3759,7 +4319,7 @@ function interpretGeomorphology(top, features) {
   }
 
   if (top.id === "snow-covered-mountain-terrain") {
-    notes.push("Priority interpretation: compare snow-cover continuity, exposed rock windows, ridge-shadow relief, and drainage incision to separate alpine terrain from clouds or blank bright surfaces.");
+    notes.push("Priority interpretation: compare snow-cover continuity, exposed rock windows, ridge-shadow relief, and drainage incision to separate mountain snow terrain from clouds or blank bright surfaces.");
   }
 
   if (top.id === "glacier-icefield") {
@@ -3767,11 +4327,11 @@ function interpretGeomorphology(top, features) {
   }
 
   if (top.id === "glacial-valley") {
-    notes.push("Priority interpretation: follow the trough-like valley corridor, lateral confinement, snow-ice pathway, and meltwater or debris-fed drainage to confirm glacial valley form.");
+    notes.push("Priority interpretation: follow the valley corridor, lateral confinement, snow-ice pathway, and meltwater or debris-fed drainage to confirm a valley, ravine, or incised channel form.");
   }
 
   if (top.id === "alpine-ridge-arete") {
-    notes.push("Priority interpretation: map crest continuity, arete segments, cols, and steep shadow-enhanced ridge breaks before assigning broader mountain terrain labels.");
+    notes.push("Priority interpretation: map crest continuity, ridge segments, saddles, and steep shadow-enhanced ridge breaks before assigning broader mountain terrain labels.");
   }
 
   if (!notes.length) {
@@ -3805,6 +4365,71 @@ function renderEmptyGeologyRanges() {
   geologyRangeResults.innerHTML = `
     <p class="form-message">Load an image to estimate pixel ranges for geology classes.</p>
   `;
+}
+
+const structuralGeologyIds = new Set([
+  "fold",
+  "fault",
+  "fault-lineament",
+  "joint-fracture-set",
+  "shear-zone",
+]);
+
+function renderEmptyStructuralGeology() {
+  structuralGeologySummary.textContent = "Load an image to screen for folds, faults, and structural traces.";
+  structuralGeologyList.innerHTML = `
+    <li>Likely structural geology calls will appear here in the Geology view only.</li>
+  `;
+}
+
+function structuralReasonForCategory(category, features) {
+  switch (category.id) {
+    case "fold":
+      return "Strong banding and directional fabric support folded strata, folded gneiss, or repeated curved layering.";
+    case "fault":
+      return "Sharp discontinuities and broken texture support a possible fault zone or disrupted structural contact.";
+    case "fault-lineament":
+      return "Persistent high-edge linear contrast supports a fault line, structural lineament, or fracture-controlled trace.";
+    case "joint-fracture-set":
+      return "Repeated linear breaks with moderate texture suggest jointing, fracture sets, or closely spaced cracks.";
+    case "shear-zone":
+      return "Strong planar banding with elongated texture suggests a sheared fabric, shear zone, or mylonitic belt.";
+    default:
+      if (features.edge > 0.72) {
+        return "High edge contrast supports a structural discontinuity or fracture-controlled pattern.";
+      }
+      if (features.banding > 0.7) {
+        return "Strong banding supports a folded or foliated structural fabric.";
+      }
+      return "Structural evidence is present, but the image does not isolate a single dominant structural style.";
+  }
+}
+
+function renderStructuralGeology(results, features) {
+  const structuralItems = results
+    .filter((item) => structuralGeologyIds.has(item.id) || item.family === "Structure")
+    .slice(0, 4);
+
+  if (!structuralItems.length) {
+    renderEmptyStructuralGeology();
+    return;
+  }
+
+  const [top] = structuralItems;
+  if (top.confidence < 0.32 && features.edge < 0.48 && features.banding < 0.52) {
+    structuralGeologySummary.textContent = "Structural geology signal is weak in this image. Fold or fault interpretation should stay tentative.";
+  } else if (top.confidence >= 0.56) {
+    structuralGeologySummary.textContent = `Likely structural geology: ${top.label} (${percent(top.confidence)} confidence).`;
+  } else {
+    structuralGeologySummary.textContent = `Possible structural geology: ${top.label} (${percent(top.confidence)} confidence).`;
+  }
+
+  structuralGeologyList.innerHTML = structuralItems.map((item, index) => `
+    <li>
+      <strong>${escapeHtml(item.label)} <span class="structural-rank">${index === 0 ? "Top pick" : `Option ${index + 1}`}</span></strong>
+      ${escapeHtml(structuralReasonForCategory(item, features))}
+    </li>
+  `).join("");
 }
 
 function renderEmptyGeomorphology() {

@@ -34,6 +34,27 @@
               <button class="button button--primary" type="button" id="chooseImage">Choose image</button>
             </div>
 
+            <section class="scene-context mode-section" id="sceneContextPanel" data-visible-modes="geomorphology classification" aria-label="Landscape context">
+              <details id="sceneContextDetails" class="collapsible-panel" open>
+                <summary class="collapsible-summary">
+                  <span class="collapsible-summary__copy">
+                    <span class="collapsible-summary__title">Landscape Context</span>
+                    <span id="sceneContextSummary" class="collapsible-summary__meta">Auto</span>
+                  </span>
+                  <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                </summary>
+                <div class="collapsible-body">
+                  <p class="collapsible-help">Optional: pick the broad landform to gently guide geomorphology.</p>
+                  <div class="form-row">
+                    <label for="landscapeContextSelect">Major landform</label>
+                    <select id="landscapeContextSelect"></select>
+                  </div>
+                  <div id="sceneClueGrid" class="scene-clue-grid"></div>
+                  <p id="sceneContextStatus" class="form-message">Using image evidence only.</p>
+                </div>
+              </details>
+            </section>
+
             <figure class="preview-frame" id="previewFrame" aria-label="Image preview">
               <div class="canvas-viewport" id="canvasViewport">
                 <canvas id="previewCanvas" width="960" height="640"></canvas>
@@ -43,11 +64,19 @@
             </figure>
 
             <section class="metadata-panel" aria-label="Image metadata">
-              <div class="panel-heading">
-                <h2>Image Metadata</h2>
-                <span id="metadataNote">Load an image to read source metadata.</span>
-              </div>
-              <div id="metadataGrid" class="metadata-grid"></div>
+              <details id="metadataDetails" class="collapsible-panel">
+                <summary class="collapsible-summary">
+                  <span class="collapsible-summary__copy">
+                    <span class="collapsible-summary__title">Image Metadata</span>
+                    <span id="metadataSummary" class="collapsible-summary__meta">No image loaded</span>
+                  </span>
+                  <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                </summary>
+                <div class="collapsible-body">
+                  <p id="metadataNote" class="collapsible-help">Load an image to read source metadata.</p>
+                  <div id="metadataGrid" class="metadata-grid"></div>
+                </div>
+              </details>
             </section>
 
             <section class="band-panel" aria-label="Band manipulation">
@@ -184,14 +213,20 @@
               <p class="empty-state">Results will appear after an image is analyzed.</p>
             </div>
 
-            <div class="metrics-grid mode-section" id="metricsGrid" data-visible-modes="geology geomorphology" aria-label="Image observations"></div>
-
             <div class="panel-block geology-range-block mode-section" id="geologyRangePanel" data-visible-modes="geology">
               <h2>Geology Pixel Ranges</h2>
               <p class="interpretation-summary">Use the geology matches as a starting point for pixel-based classification.</p>
               <div id="geologyRangeResults" class="geology-range-results">
                 <p class="form-message">Load an image to estimate pixel ranges for geology classes.</p>
               </div>
+            </div>
+
+            <div class="panel-block structural-geology-block mode-section" id="structuralGeologyPanel" data-visible-modes="geology">
+              <h2>Structural Geology</h2>
+              <p id="structuralGeologySummary" class="interpretation-summary">Load an image to screen for folds, faults, and structural traces.</p>
+              <ul id="structuralGeologyList" class="structural-list">
+                <li>Likely structural geology calls will appear here in the Geology view only.</li>
+              </ul>
             </div>
 
             <div class="panel-block geomorphology-block mode-section" data-visible-modes="geomorphology">
@@ -222,6 +257,8 @@
               <button class="button" type="submit">Add to active pack</button>
               <p id="categoryMessage" class="form-message">New classes join the catalog immediately in this session.</p>
             </form>
+
+            <div class="metrics-grid mode-section" id="metricsGrid" data-visible-modes="geology geomorphology" aria-label="Image observations"></div>
           </section>
         </div>
       </section>
@@ -234,6 +271,6 @@
       <button class="zoom-button zoom-button--wide" type="button" id="zoomReset">Reset</button>
     </div>
 
-    <script src="app.js?v=20260421-band-composer-fcc"></script>
+    <script src="app.js?v=20260421-valley-label"></script>
   </body>
 </html>
