@@ -50,22 +50,93 @@
               <div id="metadataGrid" class="metadata-grid"></div>
             </section>
 
+            <section class="band-panel" aria-label="Band manipulation">
+              <div class="panel-heading">
+                <h2>Band Manipulation</h2>
+                <span id="bandComposerNote">Load an image to build RGB and false color composites.</span>
+              </div>
+              <div class="form-row">
+                <label for="bandPresetSelect">Composite preset</label>
+                <select id="bandPresetSelect"></select>
+              </div>
+              <div class="band-channel-grid">
+                <section class="band-channel-card" aria-label="Red channel">
+                  <strong class="band-channel-title">Red</strong>
+                  <div class="form-row">
+                    <label for="bandRedSelect">Source band</label>
+                    <select id="bandRedSelect"></select>
+                  </div>
+                  <div class="band-stretch-grid">
+                    <div class="form-row">
+                      <label for="bandRedMin">Low</label>
+                      <input id="bandRedMin" type="number" min="0" max="255" step="1" value="0" />
+                    </div>
+                    <div class="form-row">
+                      <label for="bandRedMax">High</label>
+                      <input id="bandRedMax" type="number" min="0" max="255" step="1" value="255" />
+                    </div>
+                  </div>
+                </section>
+
+                <section class="band-channel-card" aria-label="Green channel">
+                  <strong class="band-channel-title">Green</strong>
+                  <div class="form-row">
+                    <label for="bandGreenSelect">Source band</label>
+                    <select id="bandGreenSelect"></select>
+                  </div>
+                  <div class="band-stretch-grid">
+                    <div class="form-row">
+                      <label for="bandGreenMin">Low</label>
+                      <input id="bandGreenMin" type="number" min="0" max="255" step="1" value="0" />
+                    </div>
+                    <div class="form-row">
+                      <label for="bandGreenMax">High</label>
+                      <input id="bandGreenMax" type="number" min="0" max="255" step="1" value="255" />
+                    </div>
+                  </div>
+                </section>
+
+                <section class="band-channel-card" aria-label="Blue channel">
+                  <strong class="band-channel-title">Blue</strong>
+                  <div class="form-row">
+                    <label for="bandBlueSelect">Source band</label>
+                    <select id="bandBlueSelect"></select>
+                  </div>
+                  <div class="band-stretch-grid">
+                    <div class="form-row">
+                      <label for="bandBlueMin">Low</label>
+                      <input id="bandBlueMin" type="number" min="0" max="255" step="1" value="0" />
+                    </div>
+                    <div class="form-row">
+                      <label for="bandBlueMax">High</label>
+                      <input id="bandBlueMax" type="number" min="0" max="255" step="1" value="255" />
+                    </div>
+                  </div>
+                </section>
+              </div>
+              <div class="band-actions">
+                <button class="button button--small" type="button" id="bandAutoStretch">Auto stretch</button>
+                <button class="button button--small" type="button" id="bandReset">Reset composite</button>
+              </div>
+              <p id="bandComposerStatus" class="form-message">The current composite will appear here after an image is loaded.</p>
+            </section>
+
             <div class="sample-row" aria-label="Demo images">
               <button class="sample-tile" type="button" data-sample="granite">
-                <img alt="Granite demo sample" id="sample-granite" />
-                <span>Granite</span>
+                <img alt="Granite gneiss demo sample" id="sample-granite" />
+                <span>Granite Gneiss</span>
               </button>
               <button class="sample-tile" type="button" data-sample="sandstone">
-                <img alt="Sandstone demo sample" id="sample-sandstone" />
-                <span>Sandstone</span>
+                <img alt="Gondwana sandstone demo sample" id="sample-sandstone" />
+                <span>Gondwana Sandstone</span>
               </button>
               <button class="sample-tile" type="button" data-sample="gneiss">
-                <img alt="Gneiss demo sample" id="sample-gneiss" />
-                <span>Gneiss</span>
+                <img alt="Peninsular gneiss demo sample" id="sample-gneiss" />
+                <span>Peninsular Gneiss</span>
               </button>
               <button class="sample-tile" type="button" data-sample="basalt">
-                <img alt="Basalt demo sample" id="sample-basalt" />
-                <span>Basalt</span>
+                <img alt="Deccan basalt demo sample" id="sample-basalt" />
+                <span>Deccan Basalt</span>
               </button>
             </div>
           </section>
@@ -163,6 +234,6 @@
       <button class="zoom-button zoom-button--wide" type="button" id="zoomReset">Reset</button>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260421-band-composer-fcc"></script>
   </body>
 </html>

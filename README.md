@@ -32,13 +32,13 @@ The current classifier is a browser-side heuristic engine. It reads image bright
 
 The upload and paste path now includes a suitability check before replacing the current preview. It keeps valid geology images, terrain images, false-color composites, and single-band geological rasters, while blocking images with too little size, tonal range, texture, banding, or geological signal. It also detects document and app-screenshot patterns, barcode or QR-like stripe patterns, number/text-heavy regions, and likely human face or person images using browser detectors when available plus strict local tile fallback heuristics. TIFF and GeoTIFF files are not browser-decodable here yet, so those need a raster loader or conversion to PNG or JPEG for display. This is a prototype safety gate rather than a trained content model, so thresholds can be tuned as more examples are collected.
 
-The Geology catalog includes explicit Metamorphic and Metasedimentary entries such as Gneiss, Schist, Amphibolite, Phyllite, Slate, Quartzite, and Meta-Sandstone. Classification labels show the rock family for Geology matches, so the result can distinguish a general Geology label from a Metasedimentary or Metamorphic interpretation.
+The Geology catalog now leans toward India-oriented lithology terms such as Deccan Basalt, Peninsular Gneiss, Dharwar Schist, Gondwana Sandstone, Charnockite, Khondalite, Aravalli Quartzite, Laterite, and Banded Iron Formation. Classification labels still show the rock family for Geology matches, so the result can distinguish a general Geology label from a Metasedimentary, Granulite, or Iron Formation interpretation.
 
 That gives a working prototype without keys, network calls, or model hosting. For production, replace `classifyWithHeuristics` with a trained image model or a Vision API adapter.
 
 The pixel value classifier separately divides the observed low-to-high grayscale range into the requested number of classes. It rejects class counts greater than the analyzed pixel count, and it rejects any classification where a class contains less than 1% of the analyzed pixels. Accepted pixel classes are rendered as a colored overlay on the image, with labels for the largest regions and a legend that maps each pixel class to the closest visible Geology or Geomorphology match.
 
-Repeated Geology or Geomorphology interpretations are merged into one professional-looking interpreted class. For example, two raw pixel bins that both match Obsidian are shown as one Obsidian class with combined pixel counts and one overlay color.
+Repeated Geology or Geomorphology interpretations are merged into one professional-looking interpreted class. For example, two raw pixel bins that both match Deccan Basalt are shown as one Deccan Basalt class with combined pixel counts and one overlay color.
 
 Classification mode includes a checkbox beside each generated pixel class. Unchecking a class removes that class color from the overlay while keeping the result visible in the list for review. Classes below 1% start unchecked instead of disabling the list, so they can still be reviewed.
 

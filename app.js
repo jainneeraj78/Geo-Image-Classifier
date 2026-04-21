@@ -12,6 +12,20 @@ const chooseImage = document.querySelector("#chooseImage");
 const previewCaption = document.querySelector("#previewCaption");
 const metadataGrid = document.querySelector("#metadataGrid");
 const metadataNote = document.querySelector("#metadataNote");
+const bandComposerNote = document.querySelector("#bandComposerNote");
+const bandPresetSelect = document.querySelector("#bandPresetSelect");
+const bandRedSelect = document.querySelector("#bandRedSelect");
+const bandGreenSelect = document.querySelector("#bandGreenSelect");
+const bandBlueSelect = document.querySelector("#bandBlueSelect");
+const bandRedMin = document.querySelector("#bandRedMin");
+const bandRedMax = document.querySelector("#bandRedMax");
+const bandGreenMin = document.querySelector("#bandGreenMin");
+const bandGreenMax = document.querySelector("#bandGreenMax");
+const bandBlueMin = document.querySelector("#bandBlueMin");
+const bandBlueMax = document.querySelector("#bandBlueMax");
+const bandAutoStretch = document.querySelector("#bandAutoStretch");
+const bandReset = document.querySelector("#bandReset");
+const bandComposerStatus = document.querySelector("#bandComposerStatus");
 const resultSummary = document.querySelector("#resultSummary");
 const metricsGrid = document.querySelector("#metricsGrid");
 const evidenceList = document.querySelector("#evidenceList");
@@ -54,7 +68,21 @@ const state = {
   classificationOptions: [],
   classificationLabelSource: "both",
   zoom: 1,
+  bandComposer: {
+    presetId: "custom",
+    channels: [
+      { bandIndex: 0, min: 0, max: 255 },
+      { bandIndex: 1, min: 0, max: 255 },
+      { bandIndex: 2, min: 0, max: 255 },
+    ],
+  },
 };
+
+const bandChannelControls = [
+  { key: "red", label: "Red", select: bandRedSelect, minInput: bandRedMin, maxInput: bandRedMax },
+  { key: "green", label: "Green", select: bandGreenSelect, minInput: bandGreenMin, maxInput: bandGreenMax },
+  { key: "blue", label: "Blue", select: bandBlueSelect, minInput: bandBlueMin, maxInput: bandBlueMax },
+];
 
 const pixelPalette = [
   [0, 95, 115],
@@ -77,66 +105,66 @@ const categoryPacks = {
     categories: [
       {
         id: "granite",
-        label: "Granite",
-        family: "Igneous",
-        cues: ["coarse speckled texture", "mixed light and dark minerals", "visible crystalline grains"],
-        weights: { brightness: 0.58, saturation: 0.24, warm: 0.54, texture: 0.78, edge: 0.46, banding: 0.2, darkness: 0.18 },
+        label: "Granite Gneiss",
+        family: "Crystalline Basement",
+        cues: ["coarse felsic-mafic crystalline mix", "speckled granite to gneissic fabric", "basement rock texture common in shield terrain"],
+        weights: { brightness: 0.56, saturation: 0.22, warm: 0.5, texture: 0.76, edge: 0.48, banding: 0.28, darkness: 0.22 },
       },
       {
         id: "basalt",
-        label: "Basalt",
+        label: "Deccan Basalt",
         family: "Igneous",
-        cues: ["dark groundmass", "fine texture", "low color variation"],
-        weights: { brightness: 0.18, saturation: 0.18, warm: 0.26, texture: 0.3, edge: 0.28, banding: 0.1, darkness: 0.86 },
+        cues: ["dark mafic lava flow", "fine texture", "Deccan Trap style low color variation"],
+        weights: { brightness: 0.18, saturation: 0.18, warm: 0.24, texture: 0.32, edge: 0.3, banding: 0.14, darkness: 0.86 },
       },
       {
         id: "obsidian",
-        label: "Obsidian",
-        family: "Igneous",
-        cues: ["very dark tone", "smooth glassy surface", "limited grain pattern"],
-        weights: { brightness: 0.1, saturation: 0.12, warm: 0.16, texture: 0.16, edge: 0.18, banding: 0.06, darkness: 0.95 },
+        label: "Dolerite Dyke",
+        family: "Igneous Intrusive",
+        cues: ["dark intrusive body", "medium to fine texture", "sharp linear contact or dyke-like contrast"],
+        weights: { brightness: 0.14, saturation: 0.14, warm: 0.18, texture: 0.34, edge: 0.56, banding: 0.22, darkness: 0.9 },
       },
       {
         id: "sandstone",
-        label: "Sandstone",
+        label: "Gondwana Sandstone",
         family: "Sedimentary",
-        cues: ["warm mineral color", "granular texture", "moderate bedding signal"],
-        weights: { brightness: 0.66, saturation: 0.46, warm: 0.82, texture: 0.62, edge: 0.36, banding: 0.32, darkness: 0.12 },
+        cues: ["warm buff to reddish mineral color", "granular texture", "plateau-forming bedding common in Gondwana basins"],
+        weights: { brightness: 0.64, saturation: 0.44, warm: 0.82, texture: 0.6, edge: 0.38, banding: 0.38, darkness: 0.14 },
       },
       {
         id: "limestone",
-        label: "Limestone",
+        label: "Limestone / Dolomite",
         family: "Sedimentary",
-        cues: ["pale gray tone", "low saturation", "soft mottled texture"],
-        weights: { brightness: 0.68, saturation: 0.14, warm: 0.42, texture: 0.34, edge: 0.22, banding: 0.18, darkness: 0.1 },
+        cues: ["pale gray to buff carbonate tone", "low saturation", "smooth to softly mottled carbonate texture"],
+        weights: { brightness: 0.7, saturation: 0.14, warm: 0.44, texture: 0.3, edge: 0.22, banding: 0.16, darkness: 0.08 },
       },
       {
         id: "shale",
-        label: "Shale",
+        label: "Shale / Mudstone",
         family: "Sedimentary",
         cues: ["fine-grained dark layers", "bedding or fissility", "muted color"],
         weights: { brightness: 0.28, saturation: 0.16, warm: 0.32, texture: 0.36, edge: 0.5, banding: 0.72, darkness: 0.64 },
       },
       {
         id: "conglomerate",
-        label: "Conglomerate",
+        label: "Pebbly Sandstone / Conglomerate",
         family: "Sedimentary",
-        cues: ["mixed clast sizes", "strong texture contrast", "rounded fragment pattern"],
-        weights: { brightness: 0.52, saturation: 0.34, warm: 0.5, texture: 0.9, edge: 0.74, banding: 0.2, darkness: 0.28 },
+        cues: ["mixed clast sizes", "strong texture contrast", "rounded to pebbly fragment pattern"],
+        weights: { brightness: 0.52, saturation: 0.32, warm: 0.48, texture: 0.9, edge: 0.74, banding: 0.24, darkness: 0.28 },
       },
       {
         id: "gneiss",
-        label: "Gneiss",
+        label: "Peninsular Gneiss",
         family: "Metamorphic",
-        cues: ["alternating light and dark bands", "strong foliation", "crystalline texture"],
-        weights: { brightness: 0.5, saturation: 0.2, warm: 0.38, texture: 0.72, edge: 0.66, banding: 0.88, darkness: 0.36 },
+        cues: ["alternating felsic and mafic bands", "strong foliation", "crystalline basement texture"],
+        weights: { brightness: 0.5, saturation: 0.18, warm: 0.36, texture: 0.72, edge: 0.64, banding: 0.9, darkness: 0.36 },
       },
       {
         id: "schist",
-        label: "Schist",
+        label: "Dharwar Schist",
         family: "Metamorphic",
-        cues: ["foliated fabric", "sparkly mineral texture", "directional grain"],
-        weights: { brightness: 0.46, saturation: 0.22, warm: 0.38, texture: 0.82, edge: 0.62, banding: 0.68, darkness: 0.34 },
+        cues: ["foliated schistose fabric", "micaceous or chloritic mineral texture", "directional grain common in Dharwar belts"],
+        weights: { brightness: 0.44, saturation: 0.22, warm: 0.34, texture: 0.8, edge: 0.62, banding: 0.7, darkness: 0.38 },
       },
       {
         id: "phyllite",
@@ -147,17 +175,17 @@ const categoryPacks = {
       },
       {
         id: "marble",
-        label: "Marble",
-        family: "Metamorphic",
-        cues: ["light crystalline texture", "soft veining", "low saturation"],
-        weights: { brightness: 0.78, saturation: 0.14, warm: 0.44, texture: 0.42, edge: 0.32, banding: 0.28, darkness: 0.06 },
+        label: "Charnockite",
+        family: "Granulite",
+        cues: ["dark greenish to gray crystalline rock", "granular high-grade texture", "massive to weakly foliated charnockitic fabric"],
+        weights: { brightness: 0.32, saturation: 0.18, warm: 0.24, texture: 0.54, edge: 0.44, banding: 0.32, darkness: 0.7 },
       },
       {
         id: "quartzite",
-        label: "Quartzite",
+        label: "Aravalli Quartzite",
         family: "Metasedimentary",
-        cues: ["hard quartz-rich fabric", "bright massive to weakly banded texture", "metamorphosed sandstone signal"],
-        weights: { brightness: 0.72, saturation: 0.12, warm: 0.38, texture: 0.44, edge: 0.38, banding: 0.36, darkness: 0.08 },
+        cues: ["hard quartz-rich fabric", "bright massive to weakly banded texture", "ridge-forming quartzite signal"],
+        weights: { brightness: 0.72, saturation: 0.12, warm: 0.36, texture: 0.42, edge: 0.42, banding: 0.34, darkness: 0.08 },
       },
       {
         id: "slate-rock",
@@ -168,10 +196,10 @@ const categoryPacks = {
       },
       {
         id: "meta-sandstone",
-        label: "Meta-Sandstone",
+        label: "Khondalite",
         family: "Metasedimentary",
-        cues: ["sandstone protolith", "recrystallized granular texture", "subtle bedding or metamorphic overprint"],
-        weights: { brightness: 0.58, saturation: 0.3, warm: 0.58, texture: 0.62, edge: 0.44, banding: 0.56, darkness: 0.22 },
+        cues: ["banded aluminous metamorphic layers", "garnet-sillimanite bearing terrain signal", "weathered brown to buff gneissic fabric"],
+        weights: { brightness: 0.54, saturation: 0.26, warm: 0.52, texture: 0.68, edge: 0.5, banding: 0.8, darkness: 0.26 },
       },
       {
         id: "amphibolite",
@@ -182,24 +210,24 @@ const categoryPacks = {
       },
       {
         id: "quartz",
-        label: "Quartz",
-        family: "Mineral",
-        cues: ["bright translucent appearance", "low saturation", "clean fracture surfaces"],
-        weights: { brightness: 0.86, saturation: 0.08, warm: 0.36, texture: 0.24, edge: 0.28, banding: 0.1, darkness: 0.02 },
+        label: "Quartz Vein",
+        family: "Vein",
+        cues: ["bright quartz-rich vein material", "low saturation", "clean high-contrast vein or reef surfaces"],
+        weights: { brightness: 0.86, saturation: 0.08, warm: 0.34, texture: 0.22, edge: 0.34, banding: 0.16, darkness: 0.02 },
       },
       {
         id: "calcite",
-        label: "Calcite",
-        family: "Mineral",
-        cues: ["light tone", "subtle warm cast", "blocky crystalline texture"],
-        weights: { brightness: 0.78, saturation: 0.2, warm: 0.56, texture: 0.34, edge: 0.3, banding: 0.12, darkness: 0.04 },
+        label: "Laterite",
+        family: "Residual Cover",
+        cues: ["red-brown ferruginous crust", "earthy weathered texture", "warm lateritic surface response"],
+        weights: { brightness: 0.5, saturation: 0.54, warm: 0.9, texture: 0.42, edge: 0.28, banding: 0.1, darkness: 0.24 },
       },
       {
         id: "hematite",
-        label: "Hematite",
-        family: "Mineral",
-        cues: ["red-brown iron staining", "high warm color score", "dense dark patches"],
-        weights: { brightness: 0.34, saturation: 0.58, warm: 0.9, texture: 0.52, edge: 0.42, banding: 0.16, darkness: 0.56 },
+        label: "Banded Iron Formation",
+        family: "Iron Formation",
+        cues: ["iron-rich red-black bands", "ferruginous ridge material", "repeated dark-light banding"],
+        weights: { brightness: 0.34, saturation: 0.4, warm: 0.72, texture: 0.62, edge: 0.58, banding: 0.84, darkness: 0.56 },
       },
       {
         id: "fold",
@@ -224,10 +252,10 @@ const categoryPacks = {
       },
       {
         id: "volcanic-terrain",
-        label: "Volcanic Terrain",
+        label: "Deccan Trap Surface",
         family: "Landform",
-        cues: ["dark rough surface", "high texture", "lava or pyroclastic color pattern"],
-        weights: { brightness: 0.26, saturation: 0.28, warm: 0.38, texture: 0.78, edge: 0.72, banding: 0.22, darkness: 0.78 },
+        cues: ["dark step-like basaltic surface", "high texture", "lava flow or trap-like plateau pattern"],
+        weights: { brightness: 0.26, saturation: 0.24, warm: 0.34, texture: 0.78, edge: 0.72, banding: 0.26, darkness: 0.78 },
       },
     ],
   },
@@ -275,6 +303,34 @@ const categoryPacks = {
         family: "Geomorphology",
         cues: ["elongated darker or sharper boundary", "channel-like contrast", "possible runoff path"],
         weights: { brightness: 0.36, saturation: 0.24, warm: 0.38, texture: 0.5, edge: 0.68, banding: 0.5, darkness: 0.58 },
+      },
+      {
+        id: "snow-covered-mountain-terrain",
+        label: "Snow-Covered Mountain Terrain",
+        family: "Geomorphology",
+        cues: ["bright snow-covered relief", "strong ridge-shadow contrast", "high alpine terrain expression"],
+        weights: { brightness: 0.56, saturation: 0.12, warm: 0.48, texture: 0.86, edge: 0.92, banding: 0.18, darkness: 0.42 },
+      },
+      {
+        id: "glacier-icefield",
+        label: "Glacier / Icefield",
+        family: "Geomorphology",
+        cues: ["bright low-saturation snow or ice cover", "icefield or glacier surface response", "snow-ice mass bounded by dark relief"],
+        weights: { brightness: 0.62, saturation: 0.08, warm: 0.46, texture: 0.72, edge: 0.8, banding: 0.16, darkness: 0.34 },
+      },
+      {
+        id: "glacial-valley",
+        label: "Glacial Valley",
+        family: "Geomorphology",
+        cues: ["broad trough-like valley corridor", "snow-ice or meltwater path", "shadowed alpine incision"],
+        weights: { brightness: 0.5, saturation: 0.12, warm: 0.46, texture: 0.82, edge: 0.9, banding: 0.22, darkness: 0.5 },
+      },
+      {
+        id: "alpine-ridge-arete",
+        label: "Alpine Ridge / Arete",
+        family: "Geomorphology",
+        cues: ["knife-edge ridge or arete expression", "sharp crest-line contrast", "high-relief ridge-shadow boundary"],
+        weights: { brightness: 0.44, saturation: 0.12, warm: 0.46, texture: 0.78, edge: 0.96, banding: 0.28, darkness: 0.56 },
       },
       {
         id: "dune-sand-sheet",
@@ -371,34 +427,443 @@ const categoryPacks = {
 
 const sampleDefinitions = {
   granite: {
-    caption: "Demo sample: granite-like speckled crystalline texture",
+    caption: "Demo sample: granite gneiss-like speckled crystalline texture",
     base: [190, 181, 168],
     accent: [46, 49, 48],
     warm: [196, 117, 102],
     mode: "speckle",
   },
   sandstone: {
-    caption: "Demo sample: sandstone-like grains with warm bedding",
+    caption: "Demo sample: Gondwana sandstone-like grains with warm bedding",
     base: [182, 143, 88],
     accent: [121, 91, 52],
     warm: [212, 166, 92],
     mode: "layered-grain",
   },
   gneiss: {
-    caption: "Demo sample: gneiss-like alternating bands",
+    caption: "Demo sample: Peninsular gneiss-like alternating bands",
     base: [176, 176, 166],
     accent: [42, 45, 45],
     warm: [132, 118, 98],
     mode: "banded",
   },
   basalt: {
-    caption: "Demo sample: basalt-like dark fine-grained rock",
+    caption: "Demo sample: Deccan basalt-like dark fine-grained rock",
     base: [39, 45, 43],
     accent: [20, 23, 22],
     warm: [70, 62, 51],
     mode: "dark-fine",
   },
 };
+
+function createBandComposerChannel(bandIndex = 0) {
+  return {
+    bandIndex,
+    min: 0,
+    max: 255,
+  };
+}
+
+function cloneBandComposerSettings(settings = state.bandComposer) {
+  return {
+    presetId: settings?.presetId || "custom",
+    channels: (settings?.channels || []).map((channel) => ({
+      bandIndex: Number.isFinite(channel?.bandIndex) ? channel.bandIndex : 0,
+      min: Number.isFinite(channel?.min) ? channel.min : 0,
+      max: Number.isFinite(channel?.max) ? channel.max : 255,
+    })),
+  };
+}
+
+function currentBandCount() {
+  return sourceBandSet.bands.length;
+}
+
+function clampBandIndex(index) {
+  const count = currentBandCount();
+  if (!count) {
+    return 0;
+  }
+  return Math.max(0, Math.min(count - 1, Math.round(Number(index) || 0)));
+}
+
+function defaultChannelIndicesForBandCount(count) {
+  if (count >= 3) {
+    return [0, 1, 2];
+  }
+  if (count === 2) {
+    return [0, 1, 1];
+  }
+  if (count === 1) {
+    return [0, 0, 0];
+  }
+  return [0, 0, 0];
+}
+
+function normalizeBandLabel(label) {
+  return String(label || "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getBandLabel(index) {
+  return sourceBandSet.labels[index] || `Band ${index + 1}`;
+}
+
+function findBandRoleIndex(role) {
+  const labels = sourceBandSet.labels.map(normalizeBandLabel);
+  return labels.findIndex((label) => {
+    if (!label) {
+      return false;
+    }
+    if (role === "red") {
+      return /\bred\b/.test(label) && !/\bred edge\b/.test(label) && !/\brededge\b/.test(label);
+    }
+    if (role === "green") {
+      return /\bgreen\b/.test(label);
+    }
+    if (role === "blue") {
+      return /\bblue\b/.test(label);
+    }
+    if (role === "nir") {
+      return /\bnir\b/.test(label) || /near infrared/.test(label);
+    }
+    if (role === "swir1") {
+      return /\bswir ?1\b/.test(label)
+        || /\bswir-?1\b/.test(label)
+        || /shortwave infrared 1/.test(label);
+    }
+    if (role === "swir2") {
+      return /\bswir ?2\b/.test(label)
+        || /\bswir-?2\b/.test(label)
+        || /shortwave infrared 2/.test(label);
+    }
+    return false;
+  });
+}
+
+function getNaturalColorIndices() {
+  const red = findBandRoleIndex("red");
+  const green = findBandRoleIndex("green");
+  const blue = findBandRoleIndex("blue");
+  if (red >= 0 && green >= 0 && blue >= 0) {
+    return [red, green, blue];
+  }
+  return defaultChannelIndicesForBandCount(currentBandCount());
+}
+
+function formatBandPresetLabel(name, indices) {
+  return `${name} (${indices.map((index) => getBandLabel(index)).join(" / ")})`;
+}
+
+function addBandPreset(presets, seen, id, name, indices) {
+  const count = currentBandCount();
+  if (!indices || indices.some((index) => index < 0 || index >= count)) {
+    return;
+  }
+  const key = indices.join(",");
+  if (seen.has(key)) {
+    return;
+  }
+  seen.add(key);
+  presets.push({
+    id,
+    indices,
+    label: formatBandPresetLabel(name, indices),
+  });
+}
+
+function buildBandPresetDefinitions() {
+  const count = currentBandCount();
+  if (!count) {
+    return [];
+  }
+
+  const presets = [];
+  const seen = new Set();
+
+  if (count === 1) {
+    addBandPreset(presets, seen, "single-band", "Single Band", [0, 0, 0]);
+  } else {
+    addBandPreset(presets, seen, "natural", "Natural Color", getNaturalColorIndices());
+
+    const red = findBandRoleIndex("red");
+    const green = findBandRoleIndex("green");
+    const blue = findBandRoleIndex("blue");
+    const nir = findBandRoleIndex("nir");
+    const swir1 = findBandRoleIndex("swir1");
+    const swir2 = findBandRoleIndex("swir2");
+
+    if (nir >= 0 && red >= 0 && green >= 0) {
+      addBandPreset(presets, seen, "fcc-nir-red-green", "False Color", [nir, red, green]);
+    }
+    if (swir1 >= 0 && nir >= 0 && red >= 0) {
+      addBandPreset(presets, seen, "fcc-swir-nir-red", "SWIR / NIR / Red", [swir1, nir, red]);
+    }
+    if (swir2 >= 0 && swir1 >= 0 && red >= 0) {
+      addBandPreset(presets, seen, "fcc-geology", "Geology FCC", [swir2, swir1, red]);
+    }
+
+    if (count >= 4) {
+      addBandPreset(presets, seen, "fcc-432", "FCC 4 / 3 / 2", [3, 2, 1]);
+    }
+    if (count >= 5) {
+      addBandPreset(presets, seen, "fcc-543", "FCC 5 / 4 / 3", [4, 3, 2]);
+    }
+    if (count >= 7) {
+      addBandPreset(presets, seen, "fcc-753", "FCC 7 / 5 / 3", [6, 4, 2]);
+    }
+  }
+
+  presets.push({ id: "custom", indices: null, label: "Custom" });
+  return presets;
+}
+
+function sanitizeBandComposerState() {
+  const count = currentBandCount();
+  const fallbackIndices = getNaturalColorIndices();
+  const channels = cloneBandComposerSettings().channels;
+
+  state.bandComposer.channels = bandChannelControls.map((_, index) => {
+    const current = channels[index] || createBandComposerChannel(fallbackIndices[index] || 0);
+    const bandIndex = count ? clampBandIndex(current.bandIndex) : 0;
+    let min = Math.round(clamp(Number(current.min) || 0, 0, 255));
+    let max = Math.round(clamp(Number(current.max) || 255, 0, 255));
+    if (max <= min) {
+      if (min >= 255) {
+        min = 254;
+        max = 255;
+      } else {
+        max = min + 1;
+      }
+    }
+
+    return { bandIndex, min, max };
+  });
+}
+
+function initializeBandComposer() {
+  const presets = buildBandPresetDefinitions();
+  const preferredPreset = presets.find((preset) => preset.id === "natural" || preset.id === "single-band") || presets[0];
+  const defaultIndices = preferredPreset?.indices || defaultChannelIndicesForBandCount(currentBandCount());
+
+  state.bandComposer = {
+    presetId: preferredPreset?.id || "custom",
+    channels: defaultIndices.map((bandIndex) => createBandComposerChannel(clampBandIndex(bandIndex))),
+  };
+  sanitizeBandComposerState();
+}
+
+function compositeBandLabels() {
+  return state.bandComposer.channels.map((channel) => getBandLabel(clampBandIndex(channel.bandIndex)));
+}
+
+function compositeBandSummary() {
+  return [
+    `Red=${getBandLabel(state.bandComposer.channels[0].bandIndex)}`,
+    `Green=${getBandLabel(state.bandComposer.channels[1].bandIndex)}`,
+    `Blue=${getBandLabel(state.bandComposer.channels[2].bandIndex)}`,
+  ].join(", ");
+}
+
+function compositeStretchSummary() {
+  return state.bandComposer.channels
+    .map((channel, index) => `${bandChannelControls[index].label} ${channel.min}-${channel.max}`)
+    .join(" | ");
+}
+
+function bandComposerIntroText(count = currentBandCount()) {
+  if (!count) {
+    return "Load an image to build RGB and false color composites.";
+  }
+  if (count === 1) {
+    return "One source band is available now. Load more bands for true false color composites.";
+  }
+  if (count === 3) {
+    return "Three source bands are ready. Swap channels or stretch them to test alternate RGB views.";
+  }
+  return "Use the preset or the channel picks below to build false color composites from the loaded bands.";
+}
+
+function bandComposerStatusText() {
+  if (!currentBandCount()) {
+    return "The current composite will appear here after an image is loaded.";
+  }
+  return `${compositeBandSummary()}. Stretch: ${compositeStretchSummary()}. The current composite now drives the preview and analysis.`;
+}
+
+function resolveBandComposerPresetId() {
+  const selectedKey = state.bandComposer.channels.map((channel) => clampBandIndex(channel.bandIndex)).join(",");
+  const matchedPreset = buildBandPresetDefinitions()
+    .find((preset) => preset.indices && preset.indices.join(",") === selectedKey);
+  return matchedPreset?.id || "custom";
+}
+
+function syncMetadataDisplayFromBandComposer(metadata = state.imageMetadata) {
+  if (!metadata || !currentBandCount()) {
+    return;
+  }
+  metadata.displayBandCount = 3;
+  metadata.displayBandLabels = compositeBandLabels();
+  metadata.displayNote = `Composite: ${compositeBandSummary()}.`;
+}
+
+function renderBandComposerControls() {
+  sanitizeBandComposerState();
+
+  const count = currentBandCount();
+  const presets = buildBandPresetDefinitions();
+  const presetId = resolveBandComposerPresetId();
+  state.bandComposer.presetId = presetId;
+
+  bandPresetSelect.innerHTML = presets.length
+    ? presets.map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.label)}</option>`).join("")
+    : `<option value="custom">Custom</option>`;
+  bandPresetSelect.value = presets.some((preset) => preset.id === state.bandComposer.presetId)
+    ? state.bandComposer.presetId
+    : presetId;
+  bandPresetSelect.disabled = !count || presets.length <= 1;
+
+  const bandOptions = count
+    ? sourceBandSet.labels.map((label, index) => `<option value="${index}">${escapeHtml(label)}</option>`).join("")
+    : `<option value="0">No bands loaded</option>`;
+
+  bandChannelControls.forEach((control, index) => {
+    const channel = state.bandComposer.channels[index];
+    control.select.innerHTML = bandOptions;
+    control.select.disabled = !count;
+    control.minInput.disabled = !count;
+    control.maxInput.disabled = !count;
+    control.select.value = String(clampBandIndex(channel.bandIndex));
+    control.minInput.value = String(channel.min);
+    control.maxInput.value = String(channel.max);
+  });
+
+  bandAutoStretch.disabled = !count;
+  bandReset.disabled = !count;
+  bandComposerNote.textContent = bandComposerIntroText(count);
+  bandComposerStatus.textContent = bandComposerStatusText();
+}
+
+function stretchByteValue(value, min, max) {
+  if (value <= min) {
+    return 0;
+  }
+  if (value >= max) {
+    return 255;
+  }
+  return clampChannel(((value - min) / Math.max(1, max - min)) * 255);
+}
+
+function compositeChannelValueAt(x, y, channelIndex) {
+  const count = currentBandCount();
+  if (!count) {
+    return 0;
+  }
+  const channel = state.bandComposer.channels[channelIndex] || createBandComposerChannel(0);
+  const bandIndex = clampBandIndex(channel.bandIndex);
+  const rawValue = bandValueAt(x, y, bandIndex);
+  return stretchByteValue(rawValue, channel.min, channel.max);
+}
+
+function percentileByteValue(band, percentile) {
+  const histogram = new Uint32Array(256);
+  for (const value of band) {
+    histogram[value] += 1;
+  }
+
+  const target = Math.max(0, Math.min(band.length - 1, Math.floor(percentile * (band.length - 1))));
+  let running = 0;
+  for (let value = 0; value < histogram.length; value += 1) {
+    running += histogram[value];
+    if (running > target) {
+      return value;
+    }
+  }
+  return 255;
+}
+
+function autoStretchBandChannel(channelIndex) {
+  const channel = state.bandComposer.channels[channelIndex];
+  const band = sourceBandSet.bands[clampBandIndex(channel.bandIndex)];
+  if (!band) {
+    return;
+  }
+
+  const min = percentileByteValue(band, 0.02);
+  const max = percentileByteValue(band, 0.98);
+  channel.min = min;
+  channel.max = max > min ? max : Math.min(255, min + 1);
+}
+
+function autoStretchCurrentComposite() {
+  bandChannelControls.forEach((_, index) => autoStretchBandChannel(index));
+  sanitizeBandComposerState();
+}
+
+function applyBandComposerState() {
+  if (!currentBandCount()) {
+    renderBandComposerControls();
+    return;
+  }
+
+  sanitizeBandComposerState();
+  state.bandComposer.presetId = resolveBandComposerPresetId();
+  paintBandSetToSourceCanvas();
+  syncMetadataDisplayFromBandComposer(state.imageMetadata);
+  renderBandComposerControls();
+  renderImageMetadata(state.imageMetadata);
+
+  if (!state.imageLoaded) {
+    renderSourceImage({ restoreCaption: true });
+    return;
+  }
+
+  state.lastPixelClassification = null;
+  analyzeCurrentCanvas();
+  if (state.activePack === "classification") {
+    runPixelClassification();
+  } else {
+    renderSourceImage({ restoreCaption: true });
+  }
+}
+
+function applyBandPreset(presetId) {
+  const preset = buildBandPresetDefinitions().find((item) => item.id === presetId);
+  if (!preset || !preset.indices) {
+    state.bandComposer.presetId = "custom";
+    renderBandComposerControls();
+    return;
+  }
+
+  state.bandComposer = {
+    presetId: preset.id,
+    channels: preset.indices.map((bandIndex) => createBandComposerChannel(clampBandIndex(bandIndex))),
+  };
+  applyBandComposerState();
+}
+
+function updateBandComposerFromInputs() {
+  state.bandComposer.channels = bandChannelControls.map((control) => ({
+    bandIndex: clampBandIndex(control.select.value),
+    min: Number(control.minInput.value),
+    max: Number(control.maxInput.value),
+  }));
+  applyBandComposerState();
+}
+
+function previewCaptionText() {
+  if (!state.imageLoaded || !state.imageName) {
+    return "Load an image or try a demo sample.";
+  }
+  const count = currentBandCount();
+  if (!count || count === 1) {
+    return state.imageName;
+  }
+  return `${state.imageName} - ${compositeBandLabels().join(" / ")}`;
+}
 
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
@@ -422,6 +887,7 @@ function setup() {
   renderEmptyMetadata();
   renderEmptyGeologyRanges();
   renderEmptyGeomorphology();
+  renderBandComposerControls();
 }
 
 function bindEvents() {
@@ -476,6 +942,31 @@ function bindEvents() {
 
   document.querySelectorAll(".sample-tile").forEach((button) => {
     button.addEventListener("click", () => loadSample(button.dataset.sample));
+  });
+
+  bandPresetSelect.addEventListener("change", () => {
+    if (bandPresetSelect.value === "custom") {
+      state.bandComposer.presetId = "custom";
+      renderBandComposerControls();
+      return;
+    }
+    applyBandPreset(bandPresetSelect.value);
+  });
+
+  bandChannelControls.forEach((control) => {
+    control.select.addEventListener("change", updateBandComposerFromInputs);
+    control.minInput.addEventListener("change", updateBandComposerFromInputs);
+    control.maxInput.addEventListener("change", updateBandComposerFromInputs);
+  });
+
+  bandAutoStretch.addEventListener("click", () => {
+    autoStretchCurrentComposite();
+    applyBandComposerState();
+  });
+
+  bandReset.addEventListener("click", () => {
+    initializeBandComposer();
+    applyBandComposerState();
   });
 
   pixelClassForm.addEventListener("submit", (event) => {
@@ -538,6 +1029,8 @@ function loadSample(id) {
 
   drawSampleTexture(sourceCtx, sourceCanvas.width, sourceCanvas.height, sample);
   rebuildBandSetFromSourceCanvas("Generated RGB sample");
+  initializeBandComposer();
+  paintBandSetToSourceCanvas();
   state.imageMetadata = createGeneratedImageMetadata(sample.caption, sourceCanvas.width, sourceCanvas.height);
   syncMetadataWithWorkingBands(state.imageMetadata, {
     decodedWidth: sourceCanvas.width,
@@ -553,6 +1046,7 @@ function loadSample(id) {
   state.lastPixelClassification = null;
   renderSourceImage();
   renderImageMetadata(state.imageMetadata);
+  renderBandComposerControls();
   previewCaption.textContent = sample.caption;
   imageStatus.textContent = `Demo image loaded (${bandDescription()})`;
   analyzeCurrentCanvas();
@@ -642,13 +1136,15 @@ function loadDecodedImage(file, metadata, previousState = null) {
   image.addEventListener("load", async () => {
     URL.revokeObjectURL(objectUrl);
     const canvasInfo = drawImageToCanvas(image, metadata);
+    initializeBandComposer();
+    paintBandSetToSourceCanvas();
     syncMetadataWithWorkingBands(metadata, canvasInfo);
     const suitability = await evaluateImageSuitability(image, metadata);
     if (!suitability.accepted) {
       restoreImageState(previousState);
-      imageStatus.textContent = `Blocked: ${file.name} is not suitable for this geology classifier`;
-      previewCaption.textContent = `Upload blocked. ${suitability.reason}`;
-      renderPixelClassMessage("Image blocked. Use a rock, core, thin-section, outcrop, terrain, false-color composite, or geological raster image.", "error");
+      imageStatus.textContent = `Blocked: ${suitability.reason}`;
+      previewCaption.textContent = `${file.name} blocked. ${suitability.reason}`;
+      renderPixelClassMessage(`Image blocked: ${suitability.reason} Use a rock, core, thin-section, outcrop, terrain, false-color composite, or geological raster image.`, "error");
       return;
     }
 
@@ -656,6 +1152,7 @@ function loadDecodedImage(file, metadata, previousState = null) {
     state.imageName = file.name;
     state.lastPixelClassification = null;
     renderImageMetadata(metadata);
+    renderBandComposerControls();
     renderSourceImage();
     previewCaption.textContent = file.name;
     imageStatus.textContent = `${file.name} loaded (${bandDescription()} for analysis)`;
@@ -738,6 +1235,7 @@ function captureImageState() {
       lastPixelClassification: state.lastPixelClassification,
       lastCallouts: [...state.lastCallouts],
       classificationOptions: [...state.classificationOptions],
+      bandComposer: cloneBandComposerSettings(),
     },
     calloutHtml: calloutLayer.innerHTML,
     calloutDisplay: calloutLayer.style.display,
@@ -764,6 +1262,7 @@ function restoreImageState(snapshot) {
   state.lastPixelClassification = snapshot.state.lastPixelClassification;
   state.lastCallouts = snapshot.state.lastCallouts;
   state.classificationOptions = snapshot.state.classificationOptions;
+  state.bandComposer = cloneBandComposerSettings(snapshot.state.bandComposer);
 
   calloutLayer.innerHTML = snapshot.calloutHtml;
   calloutLayer.style.display = snapshot.calloutDisplay;
@@ -773,6 +1272,7 @@ function restoreImageState(snapshot) {
   calloutLayer.style.height = snapshot.calloutHeight;
 
   renderImageMetadata(state.imageMetadata);
+  renderBandComposerControls();
   updateCatalogStatus();
 }
 
@@ -798,11 +1298,17 @@ async function evaluateImageSuitability(image, metadata) {
 
   const features = extractFeatures();
   const pattern = inspectSuitabilityPixelPattern();
-  const faceDetection = await detectHumanFacesInSource();
-  const barcodeDetection = await detectBarcodesInSource();
   const humanPattern = inspectHumanPortraitPattern();
   const artifactPattern = inspectBarcodeTextPattern();
   const localArtifacts = inspectLocalNonGeologyArtifacts();
+  const terrainRasterPattern = inspectTerrainRasterPattern(features, pattern, artifactPattern, localArtifacts, metadata, tonalRange);
+  // False-color and terrain rasters can overlap heavily with skin-tone thresholds,
+  // so once terrain evidence is strong we stop using browser face/portrait gates.
+  const shouldBypassFaceDetector = terrainRasterPattern.hasStrongTerrainEvidence;
+  const faceDetection = shouldBypassFaceDetector
+    ? { faces: [], source: "skipped-for-terrain" }
+    : await detectHumanFacesInSource();
+  const barcodeDetection = await detectBarcodesInSource();
   const isLikelyHumanImage = humanPattern.skinShare > 0.14
     && humanPattern.centerSkinShare > 0.18
     && humanPattern.upperCenterSkinShare > 0.16
@@ -813,6 +1319,17 @@ async function evaluateImageSuitability(image, metadata) {
       || humanPattern.centralSkinDominance > 1.35
     )
     && features.banding < 0.58;
+  const hasStrongPersonSkinSignal = (
+    humanPattern.skinShare > 0.035
+    || localArtifacts.maxSkinTileShare > 0.24
+    || localArtifacts.skinTileShare > 0.06
+  )
+    && (
+      humanPattern.centralSkinDominance > 1.05
+      || humanPattern.centerSkinShare > 0.05
+      || humanPattern.upperCenterSkinShare > 0.05
+      || localArtifacts.maxSkinTileShare > 0.28
+    );
   const hasLocalHumanPatch = localArtifacts.maxSkinTileShare > 0.24
     && localArtifacts.maxSmoothSkinTileShare > 0.16
     && (
@@ -820,11 +1337,7 @@ async function evaluateImageSuitability(image, metadata) {
       || humanPattern.darkFeatureShare > 0.006
       || pattern.paperShare > 0.1
     );
-  const isLikelyPersonDocument = (
-    humanPattern.skinShare > 0.02
-    || localArtifacts.maxSkinTileShare > 0.18
-    || localArtifacts.skinTileShare > 0.045
-  )
+  const isLikelyPersonDocument = hasStrongPersonSkinSignal
     && (
       humanPattern.skinSmoothShare > 0.16
       || localArtifacts.smoothSkinTileShare > 0.035
@@ -835,15 +1348,34 @@ async function evaluateImageSuitability(image, metadata) {
       || pattern.lowSaturationShare > 0.38
       || localArtifacts.documentTileShare > 0.04
     );
+  const hasDetectedHumanFace = faceDetection.faces.length > 0
+    && (
+      !terrainRasterPattern.hasStrongTerrainEvidence
+      || hasStrongPersonSkinSignal
+      || isLikelyHumanImage
+      || hasLocalHumanPatch
+    );
+  const shouldBlockForHuman = terrainRasterPattern.hasStrongTerrainEvidence
+    ? false
+    : hasDetectedHumanFace || isLikelyHumanImage || isLikelyPersonDocument || hasLocalHumanPatch;
 
-  if (faceDetection.faces.length || isLikelyHumanImage || isLikelyPersonDocument || hasLocalHumanPatch) {
+  if (shouldBlockForHuman) {
     return {
       accepted: false,
       reason: "The image appears to contain a human face or person, not a geological target.",
     };
   }
 
-  if (barcodeDetection.codes.length || artifactPattern.isLikelyBarcodeOrTextDocument || localArtifacts.isLikelyArtifactImage) {
+  const hasStrongArtifactSignal = barcodeDetection.codes.length
+    || artifactPattern.barcodeRowShare > 0.028
+    || artifactPattern.barcodeColShare > 0.028
+    || localArtifacts.barcodeTileShare > 0.05
+    || localArtifacts.textTileShare > 0.18
+    || localArtifacts.documentTileShare > 0.22
+    || (artifactPattern.textCellShare > 0.22 && pattern.paperShare > 0.24 && pattern.lowSaturationShare > 0.55);
+  const hasSoftArtifactSignal = artifactPattern.isLikelyBarcodeOrTextDocument || localArtifacts.isLikelyArtifactImage;
+
+  if (hasStrongArtifactSignal || (hasSoftArtifactSignal && !terrainRasterPattern.hasStrongTerrainEvidence)) {
     return {
       accepted: false,
       reason: "The image appears to contain barcodes, QR codes, numbers, or document-style text rather than geological content.",
@@ -855,17 +1387,19 @@ async function evaluateImageSuitability(image, metadata) {
   const bestConfidence = Math.max(geologyTop?.confidence || 0, geomorphologyTop?.confidence || 0);
   const textureSignal = Math.max(features.texture, features.edge, features.banding);
   const tonalSignal = clamp(tonalRange / 96);
-  const terrainRasterPattern = inspectTerrainRasterPattern(features, pattern, tonalRange, localArtifacts, metadata);
-  const isLikelyBlankDocument = features.brightness > 0.88
+  const isLikelyBlankDocument = !terrainRasterPattern.hasStrongTerrainEvidence
+    && features.brightness > 0.88
     && features.saturation < 0.1
     && features.texture < 0.18
     && features.banding < 0.16
     && features.edge < 0.24;
-  const isLikelySimpleGraphic = tonalRange < 28
+  const isLikelySimpleGraphic = !terrainRasterPattern.hasStrongTerrainEvidence
+    && tonalRange < 28
     && features.texture < 0.08
     && features.edge < 0.08
     && features.banding < 0.08;
-  const isLikelyUiOrDocument = pattern.paperShare > 0.34
+  const isLikelyUiOrDocument = !terrainRasterPattern.hasStrongTerrainEvidence
+    && pattern.paperShare > 0.34
     && pattern.inkShare > 0.006
     && pattern.lowSaturationShare > 0.62
     && (
@@ -888,10 +1422,16 @@ async function evaluateImageSuitability(image, metadata) {
     Math.max(features.warm, features.darkness, features.brightness) * 0.08 +
     (metadataUsesSingleGrayBand(metadata) || metadata?.inferredSingleBand ? 0.06 : 0);
   const terrainRasterBonus = terrainRasterPattern.looksLikeFalseColorTerrain
-    ? 0.14
-    : terrainRasterPattern.looksLikeSingleBandTerrain ? 0.1 : 0;
-  const finalSuitabilityScore = suitabilityScore + terrainRasterBonus;
-  const requiredSuitabilityScore = terrainRasterPattern.looksLikeTerrainRaster ? 0.34 : 0.42;
+    ? 0.18
+    : terrainRasterPattern.looksLikeSingleBandTerrain ? 0.12 : 0;
+  const coldBrightTerrainBonus = terrainRasterPattern.looksLikeColdBrightTerrain ? 0.14 : 0;
+  const modeledSuitabilityScore = suitabilityScore + terrainRasterBonus + coldBrightTerrainBonus;
+  const finalSuitabilityScore = terrainRasterPattern.hasStrongTerrainEvidence
+    ? Math.max(modeledSuitabilityScore, terrainRasterPattern.terrainOnlyScore)
+    : modeledSuitabilityScore;
+  const requiredSuitabilityScore = terrainRasterPattern.looksLikeColdBrightTerrain
+    ? 0.34
+    : terrainRasterPattern.looksLikeTerrainRaster ? 0.28 : 0.42;
 
   if (finalSuitabilityScore < requiredSuitabilityScore) {
     return {
@@ -955,42 +1495,90 @@ function inspectSuitabilityPixelPattern() {
   };
 }
 
-function inspectTerrainRasterPattern(features, pattern, tonalRange, localArtifacts, metadata) {
-  const lowArtifactSignal = localArtifacts.barcodeTileShare === 0
-    && localArtifacts.textTileShare < 0.02
-    && localArtifacts.documentTileShare < 0.03;
-  const hasTerrainTexture = tonalRange >= 18
+function inspectTerrainRasterPattern(features, pattern, artifactPattern, localArtifacts, metadata, tonalRange) {
+  const lowArtifactSignal = localArtifacts.barcodeTileShare < 0.03
+    && artifactPattern.barcodeRowShare < 0.025
+    && artifactPattern.barcodeColShare < 0.025
+    && localArtifacts.textTileShare < 0.12
+    && localArtifacts.documentTileShare < 0.12
+    && artifactPattern.textCellShare < 0.18;
+  const hasTerrainTexture = tonalRange >= 12
     && (
-      features.texture > 0.045
-      || features.edge > 0.06
-      || features.banding > 0.04
+      features.texture > 0.02
+      || features.edge > 0.03
+      || features.banding > 0.025
     );
-  const hasRasterColorSpread = pattern.colorBinCount >= 18
-    && pattern.paperShare < 0.18
-    && pattern.inkShare < 0.72
-    && pattern.lowSaturationShare < 0.94;
-  const hasFalseColorSignal = features.saturation > 0.08
+  const hasRasterColorSpread = pattern.colorBinCount >= 12
+    && pattern.paperShare < 0.28
+    && pattern.inkShare < 0.88
+    && pattern.lowSaturationShare < 0.97;
+  const hasFalseColorSignal = features.saturation > 0.04
     && (
-      pattern.accentShare > 0.025
-      || pattern.colorBinCount >= 28
+      pattern.accentShare > 0.012
+      || pattern.colorBinCount >= 20
+      || features.warm > 0.44
+      || features.dominantTone !== "light neutral"
     );
   const hasGrayRasterSignal = (metadataUsesSingleGrayBand(metadata) || metadata?.inferredSingleBand)
-    && tonalRange >= 16
-    && pattern.paperShare < 0.2
-    && pattern.inkShare < 0.78;
+    && tonalRange >= 12
+    && pattern.paperShare < 0.28
+    && pattern.inkShare < 0.88;
+  const hasFieldLikeStructure = features.edge > 0.035
+    || features.texture > 0.03
+    || features.banding > 0.03;
+  const looksLikeColdBrightTerrain = lowArtifactSignal
+    && pattern.paperShare > 0.08
+    && pattern.lowSaturationShare > 0.32
+    && features.saturation < 0.22
+    && (
+      features.edge > 0.18
+      || features.texture > 0.16
+      || pattern.inkShare > 0.08
+      || features.banding > 0.1
+    )
+    && pattern.colorBinCount >= 18;
 
   const looksLikeFalseColorTerrain = lowArtifactSignal
     && hasTerrainTexture
     && hasRasterColorSpread
-    && hasFalseColorSignal;
+    && hasFalseColorSignal
+    && hasFieldLikeStructure;
   const looksLikeSingleBandTerrain = lowArtifactSignal
     && hasTerrainTexture
-    && hasGrayRasterSignal;
+    && hasGrayRasterSignal
+    && hasFieldLikeStructure;
+  const hasStrongTerrainEvidence = lowArtifactSignal
+    && (
+      looksLikeFalseColorTerrain
+      || looksLikeSingleBandTerrain
+      || looksLikeColdBrightTerrain
+      || (
+        hasTerrainTexture
+        && hasFieldLikeStructure
+        && pattern.colorBinCount >= 18
+        && pattern.inkShare > 0.04
+      )
+    );
+  const terrainOnlyScore = lowArtifactSignal
+    ? clamp(
+      features.edge * 0.32 +
+      features.texture * 0.24 +
+      features.banding * 0.08 +
+      clamp(tonalRange / 96) * 0.16 +
+      clamp(pattern.colorBinCount / 48) * 0.12 +
+      clamp(pattern.inkShare / 0.2) * 0.08 +
+      (looksLikeColdBrightTerrain ? 0.12 : 0) +
+      ((looksLikeFalseColorTerrain || looksLikeSingleBandTerrain) ? 0.08 : 0)
+    )
+    : 0;
 
   return {
     looksLikeFalseColorTerrain,
     looksLikeSingleBandTerrain,
-    looksLikeTerrainRaster: looksLikeFalseColorTerrain || looksLikeSingleBandTerrain,
+    looksLikeColdBrightTerrain,
+    hasStrongTerrainEvidence,
+    terrainOnlyScore,
+    looksLikeTerrainRaster: looksLikeFalseColorTerrain || looksLikeSingleBandTerrain || looksLikeColdBrightTerrain,
   };
 }
 
@@ -1978,6 +2566,7 @@ function syncMetadataWithWorkingBands(metadata, canvasInfo = {}) {
   metadata.workingSourceType = sourceBandSet.sourceType;
   metadata.inferredSingleBand = Boolean(canvasInfo.inferredSingleBand);
   metadata.canvasInspection = canvasInfo.canvasInspection || metadata.canvasInspection;
+  syncMetadataDisplayFromBandComposer(metadata);
 }
 
 function rebuildBandSetFromSourceCanvas(sourceType, options = {}) {
@@ -2058,40 +2647,16 @@ function bandValueAt(x, y, bandIndex) {
 }
 
 function sourceRgbAt(x, y) {
-  if (sourceBandSet.bands.length >= 3) {
-    return [
-      bandValueAt(x, y, 0),
-      bandValueAt(x, y, 1),
-      bandValueAt(x, y, 2),
-    ];
-  }
-
-  const value = analysisValueAt(x, y);
-  return [value, value, value];
+  return [
+    compositeChannelValueAt(x, y, 0),
+    compositeChannelValueAt(x, y, 1),
+    compositeChannelValueAt(x, y, 2),
+  ];
 }
 
 function analysisValueAt(x, y) {
-  const bandCount = sourceBandSet.bands.length;
-  if (bandCount > 3) {
-    let total = 0;
-    for (let index = 0; index < bandCount; index += 1) {
-      total += bandValueAt(x, y, index);
-    }
-    return Math.round(total / bandCount);
-  }
-
-  if (bandCount === 3) {
-    const r = bandValueAt(x, y, 0);
-    const g = bandValueAt(x, y, 1);
-    const b = bandValueAt(x, y, 2);
-    return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
-  }
-
-  if (bandCount === 1) {
-    return bandValueAt(x, y, 0);
-  }
-
-  return 0;
+  const [r, g, b] = sourceRgbAt(x, y);
+  return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
 }
 
 function bandDescription() {
@@ -2127,6 +2692,7 @@ function loadMultibandBandSet({ bands, labels = [], sourceType = "multiband imag
     labels,
     sourceType,
   });
+  initializeBandComposer();
   paintBandSetToSourceCanvas();
   state.imageLoaded = true;
   state.imageName = `${sourceType} (${bandDescription()})`;
@@ -2143,6 +2709,7 @@ function loadMultibandBandSet({ bands, labels = [], sourceType = "multiband imag
   });
   renderSourceImage({ restoreCaption: true });
   renderImageMetadata(state.imageMetadata);
+  renderBandComposerControls();
   imageStatus.textContent = state.imageName;
   analyzeCurrentCanvas();
   if (state.activePack === "classification") {
@@ -2157,7 +2724,7 @@ function renderSourceImage({ restoreCaption = false } = {}) {
   ctx.drawImage(sourceCanvas, 0, 0);
   clearCalloutLayer();
   if (restoreCaption && state.imageLoaded && state.imageName) {
-    previewCaption.textContent = state.imageName;
+    previewCaption.textContent = previewCaptionText();
   }
 }
 
@@ -2880,6 +3447,7 @@ function formatPixelPercent(value) {
 
 function renderMetrics(features) {
   const metrics = [
+    ["Display composite", compositeBandSummary()],
     ["Analysis bands", bandDescription()],
     ["Dominant tone", features.dominantTone],
     ["Brightness", percent(features.brightness)],
@@ -2902,6 +3470,7 @@ function renderEmptyMetadata() {
   metadataGrid.innerHTML = [
     ["Source bands", "Waiting"],
     ["Analysis bands", "Waiting"],
+    ["Display composite", "Waiting"],
     ["Format", "Waiting"],
     ["Encoded size", "Waiting"],
   ].map(([label, value]) => metadataRow(label, value)).join("");
@@ -2920,7 +3489,7 @@ function renderImageMetadata(metadata = state.imageMetadata) {
     ["Decoded size", formatDimensions(metadata.decodedWidth, metadata.decodedHeight)],
     ["Source bands", formatBandList(metadata.encodedBandCount, metadata.encodedBandLabels)],
     ["Analysis bands", metadata.workingBandCount ? formatBandList(metadata.workingBandCount, metadata.workingBandLabels) : "Waiting"],
-    ["Display decode", formatBandList(metadata.displayBandCount, metadata.displayBandLabels)],
+    ["Display composite", formatBandList(metadata.displayBandCount, metadata.displayBandLabels)],
     ["Bit depth", metadata.bitDepth || "Unknown"],
     ["File size", formatFileSize(metadata.fileSize)],
     ["Modified", formatModifiedDate(metadata.lastModified)],
@@ -2946,6 +3515,10 @@ function metadataSummary(metadata) {
 
   if (metadata.inferredSingleBand) {
     return "RGB display channels are nearly identical; analysis is treating the image as one Gray band.";
+  }
+
+  if (metadata.displayNote) {
+    return metadata.displayNote;
   }
 
   if (metadata.encodedBandCount && metadata.workingBandCount && metadata.encodedBandCount !== metadata.workingBandCount) {
@@ -3106,6 +3679,9 @@ function renderEvidence(top, features) {
     features.darkness > 0.7 ? "The image is dominated by dark material." : "",
     features.warm > 0.72 ? "Warm red, buff, or iron-rich color is prominent." : "",
     features.edge > 0.68 ? "Sharp discontinuities or broken fabric are present." : "",
+    features.brightness > 0.42 && features.saturation < 0.22 && features.edge > 0.55
+      ? "Bright low-saturation terrain with strong relief may indicate snow or ice cover."
+      : "",
   ].filter(Boolean);
 
   const evidence = [...top.cues, ...featureEvidence].slice(0, 6);
@@ -3124,6 +3700,14 @@ function renderGeomorphology(top, features) {
 function interpretGeomorphology(top, features) {
   const notes = [];
   const landformHints = [];
+  const hasColdBrightTerrain = features.brightness > 0.42
+    && features.saturation < 0.22
+    && features.edge > 0.55
+    && (
+      features.texture > 0.45
+      || features.darkness > 0.28
+      || features.banding > 0.14
+    );
 
   if (features.banding > 0.64) {
     landformHints.push("layered terrain or structural fabric");
@@ -3155,6 +3739,13 @@ function interpretGeomorphology(top, features) {
     notes.push("Extractable feature: light smoother areas may represent carbonate exposure, quartz-rich material, dry sediment flats, pale soil, or low-relief weathered ground.");
   }
 
+  if (hasColdBrightTerrain) {
+    landformHints.push("snow or ice cover");
+    landformHints.push("shadow-enhanced alpine relief");
+    notes.push("Extractable feature: bright low-saturation slopes with strong ridge-shadow contrast can indicate snowfields, glacier ice, firn cover, or seasonal snow on steep alpine terrain.");
+    notes.push("Extractable feature: alternating bright snow and dark shadow bands strengthen interpretation of high-relief ridges, cirques, glacial walls, or deeply incised alpine valleys.");
+  }
+
   if (top.family === "Structure") {
     notes.push("Priority interpretation: map linear trends, offsets, repeated bands, and cross-cutting relationships before assigning a structural landform label.");
   }
@@ -3164,7 +3755,23 @@ function interpretGeomorphology(top, features) {
   }
 
   if (top.family === "Landform" || top.id === "volcanic-terrain") {
-    notes.push("Priority interpretation: compare roughness, flow-like margins, dark tone, and drainage disruption to separate volcanic terrain from shadowed slopes.");
+    notes.push("Priority interpretation: compare roughness, flow-like margins, dark tone, step-like trap surfaces, and drainage disruption to separate Deccan Trap terrain from shadowed slopes.");
+  }
+
+  if (top.id === "snow-covered-mountain-terrain") {
+    notes.push("Priority interpretation: compare snow-cover continuity, exposed rock windows, ridge-shadow relief, and drainage incision to separate alpine terrain from clouds or blank bright surfaces.");
+  }
+
+  if (top.id === "glacier-icefield") {
+    notes.push("Priority interpretation: trace bright snow-ice masses, flow-aligned texture, meltwater margins, and dark valley-side confinement to assess glacier or icefield expression.");
+  }
+
+  if (top.id === "glacial-valley") {
+    notes.push("Priority interpretation: follow the trough-like valley corridor, lateral confinement, snow-ice pathway, and meltwater or debris-fed drainage to confirm glacial valley form.");
+  }
+
+  if (top.id === "alpine-ridge-arete") {
+    notes.push("Priority interpretation: map crest continuity, arete segments, cols, and steep shadow-enhanced ridge breaks before assigning broader mountain terrain labels.");
   }
 
   if (!notes.length) {
@@ -3186,7 +3793,7 @@ function interpretGeomorphology(top, features) {
 }
 
 function renderEmptyMetrics() {
-  metricsGrid.innerHTML = ["Analysis bands", "Dominant tone", "Brightness", "Texture", "Banding"].map((label) => `
+  metricsGrid.innerHTML = ["Display composite", "Analysis bands", "Dominant tone", "Brightness", "Texture", "Banding"].map((label) => `
     <div class="metric">
       <span>${label}</span>
       <strong>Waiting</strong>
