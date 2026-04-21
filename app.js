@@ -648,7 +648,7 @@ function loadDecodedImage(file, metadata, previousState = null) {
       restoreImageState(previousState);
       imageStatus.textContent = `Blocked: ${file.name} is not suitable for this geology classifier`;
       previewCaption.textContent = `Upload blocked. ${suitability.reason}`;
-      renderPixelClassMessage("Image blocked. Use a rock, core, thin-section, outcrop, terrain, or geological raster image.", "error");
+      renderPixelClassMessage("Image blocked. Use a rock, core, thin-section, outcrop, terrain, false-color composite, or geological raster image.", "error");
       return;
     }
 
@@ -667,9 +667,20 @@ function loadDecodedImage(file, metadata, previousState = null) {
 
   image.addEventListener("error", () => {
     URL.revokeObjectURL(objectUrl);
-    imageStatus.textContent = "The image could not be decoded by this browser";
-    metadata.notes.push("The file header was readable, but the browser could not decode the image for display.");
+    const isTiffLike = looksLikeTiffFile(file, metadata);
+    imageStatus.textContent = isTiffLike
+      ? "This browser cannot decode TIFF or GeoTIFF images yet"
+      : "The image could not be decoded by this browser";
+    metadata.notes.push(isTiffLike
+      ? "TIFF and GeoTIFF files need a raster loader or conversion to PNG or JPEG before the browser can display them."
+      : "The file header was readable, but the browser could not decode the image for display.");
     renderImageMetadata(metadata);
+    renderPixelClassMessage(
+      isTiffLike
+        ? "This false-color raster looks valid, but TIFF and GeoTIFF files need a raster loader or conversion to PNG or JPEG before display."
+        : "The browser could not decode this file for display.",
+      "error",
+    );
   });
 
   image.src = objectUrl;
@@ -844,6 +855,7 @@ async function evaluateImageSuitability(image, metadata) {
   const bestConfidence = Math.max(geologyTop?.confidence || 0, geomorphologyTop?.confidence || 0);
   const textureSignal = Math.max(features.texture, features.edge, features.banding);
   const tonalSignal = clamp(tonalRange / 96);
+  const terrainRasterPattern = inspectTerrainRasterPattern(features, pattern, tonalRange, localArtifacts, metadata);
   const isLikelyBlankDocument = features.brightness > 0.88
     && features.saturation < 0.1
     && features.texture < 0.18
@@ -875,8 +887,13 @@ async function evaluateImageSuitability(image, metadata) {
     tonalSignal * 0.16 +
     Math.max(features.warm, features.darkness, features.brightness) * 0.08 +
     (metadataUsesSingleGrayBand(metadata) || metadata?.inferredSingleBand ? 0.06 : 0);
+  const terrainRasterBonus = terrainRasterPattern.looksLikeFalseColorTerrain
+    ? 0.14
+    : terrainRasterPattern.looksLikeSingleBandTerrain ? 0.1 : 0;
+  const finalSuitabilityScore = suitabilityScore + terrainRasterBonus;
+  const requiredSuitabilityScore = terrainRasterPattern.looksLikeTerrainRaster ? 0.34 : 0.42;
 
-  if (suitabilityScore < 0.42) {
+  if (finalSuitabilityScore < requiredSuitabilityScore) {
     return {
       accepted: false,
       reason: "The image does not show enough rock, terrain, texture, banding, or geological tonal structure.",
@@ -885,7 +902,7 @@ async function evaluateImageSuitability(image, metadata) {
 
   return {
     accepted: true,
-    score: suitabilityScore,
+    score: finalSuitabilityScore,
   };
 }
 
@@ -935,6 +952,45 @@ function inspectSuitabilityPixelPattern() {
     lowSaturationShare: total ? lowSaturation / total : 0,
     paperInkEdgeShare: edgeChecks ? paperInkEdges / edgeChecks : 0,
     colorBinCount: colorBins.size,
+  };
+}
+
+function inspectTerrainRasterPattern(features, pattern, tonalRange, localArtifacts, metadata) {
+  const lowArtifactSignal = localArtifacts.barcodeTileShare === 0
+    && localArtifacts.textTileShare < 0.02
+    && localArtifacts.documentTileShare < 0.03;
+  const hasTerrainTexture = tonalRange >= 18
+    && (
+      features.texture > 0.045
+      || features.edge > 0.06
+      || features.banding > 0.04
+    );
+  const hasRasterColorSpread = pattern.colorBinCount >= 18
+    && pattern.paperShare < 0.18
+    && pattern.inkShare < 0.72
+    && pattern.lowSaturationShare < 0.94;
+  const hasFalseColorSignal = features.saturation > 0.08
+    && (
+      pattern.accentShare > 0.025
+      || pattern.colorBinCount >= 28
+    );
+  const hasGrayRasterSignal = (metadataUsesSingleGrayBand(metadata) || metadata?.inferredSingleBand)
+    && tonalRange >= 16
+    && pattern.paperShare < 0.2
+    && pattern.inkShare < 0.78;
+
+  const looksLikeFalseColorTerrain = lowArtifactSignal
+    && hasTerrainTexture
+    && hasRasterColorSpread
+    && hasFalseColorSignal;
+  const looksLikeSingleBandTerrain = lowArtifactSignal
+    && hasTerrainTexture
+    && hasGrayRasterSignal;
+
+  return {
+    looksLikeFalseColorTerrain,
+    looksLikeSingleBandTerrain,
+    looksLikeTerrainRaster: looksLikeFalseColorTerrain || looksLikeSingleBandTerrain,
   };
 }
 
@@ -1544,6 +1600,7 @@ function inferFormatFromFile(file) {
   if (mimeType.includes("gif")) return "GIF";
   if (mimeType.includes("webp")) return "WebP";
   if (mimeType.includes("bmp")) return "BMP";
+  if (mimeType.includes("tiff")) return "TIFF";
 
   const extension = String(file?.name || "").split(".").pop().toLowerCase();
   const known = {
@@ -1553,6 +1610,8 @@ function inferFormatFromFile(file) {
     gif: "GIF",
     webp: "WebP",
     bmp: "BMP",
+    tif: "TIFF",
+    tiff: "TIFF",
   };
   return known[extension] || "Unknown";
 }
@@ -1571,8 +1630,19 @@ function extensionForMimeType(mimeType) {
     "image/gif": "gif",
     "image/webp": "webp",
     "image/bmp": "bmp",
+    "image/tiff": "tif",
   };
   return extensions[mimeType] || "png";
+}
+
+function looksLikeTiffFile(file, metadata) {
+  const mimeType = String(file?.type || "").toLowerCase();
+  const fileName = String(file?.name || "").toLowerCase();
+  const format = String(metadata?.format || "").toLowerCase();
+  return mimeType.includes("tiff")
+    || fileName.endsWith(".tif")
+    || fileName.endsWith(".tiff")
+    || format === "tiff";
 }
 
 function parsePngMetadata(bytes) {

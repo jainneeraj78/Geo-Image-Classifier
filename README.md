@@ -14,8 +14,8 @@ If the server window is closed, the localhost page will stop working. Double-cli
 
 ## What It Does
 
-- Upload, drag, or paste a geology image into the workspace.
-- Block unsuitable uploads or pasted images that look blank, tiny, flat, or unrelated to rock, terrain, outcrop, core, thin-section, or geological raster interpretation.
+- Upload, drag, or paste a geology image, terrain raster, or false-color composite into the workspace.
+- Block unsuitable uploads or pasted images that look blank, tiny, flat, or unrelated to rock, terrain, outcrop, core, thin-section, false-color terrain, or geological raster interpretation.
 - Review Image Metadata for source format, encoded dimensions, source bands, browser display decode, and analysis bands.
 - Try generated demo samples for granite, sandstone, gneiss, and basalt.
 - Switch the analysis pack dropdown between Geology, Geomorphology, and Classification.
@@ -30,7 +30,7 @@ If the server window is closed, the localhost page will stop working. Double-cli
 
 The current classifier is a browser-side heuristic engine. It reads image brightness, saturation, warmth, texture, edge contrast, and banding, then compares those observations against the selected catalog in `app.js`.
 
-The upload and paste path now includes a suitability check before replacing the current preview. It keeps valid geology images, terrain images, and single-band geological rasters, while blocking images with too little size, tonal range, texture, banding, or geological signal. It also detects document and app-screenshot patterns, barcode or QR-like stripe patterns, number/text-heavy regions, and likely human face or person images using browser detectors when available plus strict local tile fallback heuristics. This is a prototype safety gate rather than a trained content model, so thresholds can be tuned as more examples are collected.
+The upload and paste path now includes a suitability check before replacing the current preview. It keeps valid geology images, terrain images, false-color composites, and single-band geological rasters, while blocking images with too little size, tonal range, texture, banding, or geological signal. It also detects document and app-screenshot patterns, barcode or QR-like stripe patterns, number/text-heavy regions, and likely human face or person images using browser detectors when available plus strict local tile fallback heuristics. TIFF and GeoTIFF files are not browser-decodable here yet, so those need a raster loader or conversion to PNG or JPEG for display. This is a prototype safety gate rather than a trained content model, so thresholds can be tuned as more examples are collected.
 
 The Geology catalog includes explicit Metamorphic and Metasedimentary entries such as Gneiss, Schist, Amphibolite, Phyllite, Slate, Quartzite, and Meta-Sandstone. Classification labels show the rock family for Geology matches, so the result can distinguish a general Geology label from a Metasedimentary or Metamorphic interpretation.
 
