@@ -4,56 +4,133 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Geo Image Classifier</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260421-page-background-top-panels" />
   </head>
   <body>
     <main class="app-shell">
       <section class="workspace" aria-labelledby="app-title">
-        <div class="workspace__intro">
-          <p class="eyebrow">Geological image screening</p>
-          <h1 id="app-title">Image Processing is Fun</h1>
-          <p class="lede">
-            Drop a field photo, thin-section snapshot, core image, or landscape view. Start with geology and geomorphology now, then add more class packs as the catalog grows.
-          </p>
-        </div>
+        <header class="workspace-header">
+          <div class="workspace__intro">
+            <p class="eyebrow">Geological image screening</p>
+            <h1 id="app-title">Image Processing is Fun</h1>
+            <p class="lede">
+              Upload an image and explore geology, geomorphology, and pixel classification.
+            </p>
+          </div>
 
-        <div class="status-strip" role="status" aria-live="polite">
-          <span id="modelMode">Geology pack active</span>
-          <span id="imageStatus">No image loaded</span>
-          <span id="catalogStatus">18 classes ready</span>
-        </div>
+          <div class="status-strip" role="status" aria-live="polite">
+            <span id="modelMode">Geology pack active</span>
+            <span id="imageStatus">No image loaded</span>
+            <span id="catalogStatus">18 classes ready</span>
+          </div>
+        </header>
 
         <div class="tool-grid">
           <section class="image-panel" aria-label="Image input and preview">
-            <div id="dropZone" class="drop-zone" tabindex="0">
-              <input id="imageInput" type="file" accept="image/*" />
-              <div class="drop-zone__copy">
-                <strong>Drop or paste an image here</strong>
-                <span>Choose a file, drag an image, or press Ctrl+V.</span>
-              </div>
-              <button class="button button--primary" type="button" id="chooseImage">Choose image</button>
-            </div>
-
-            <section class="scene-context mode-section" id="sceneContextPanel" data-visible-modes="geomorphology classification" aria-label="Landscape context">
-              <details id="sceneContextDetails" class="collapsible-panel" open>
-                <summary class="collapsible-summary">
-                  <span class="collapsible-summary__copy">
-                    <span class="collapsible-summary__title">Landscape Context</span>
-                    <span id="sceneContextSummary" class="collapsible-summary__meta">Auto</span>
-                  </span>
-                  <span class="collapsible-summary__icon" aria-hidden="true"></span>
-                </summary>
-                <div class="collapsible-body">
-                  <p class="collapsible-help">Optional: pick the broad landform to gently guide geomorphology.</p>
-                  <div class="form-row">
-                    <label for="landscapeContextSelect">Major landform</label>
-                    <select id="landscapeContextSelect"></select>
-                  </div>
-                  <div id="sceneClueGrid" class="scene-clue-grid"></div>
-                  <p id="sceneContextStatus" class="form-message">Using image evidence only.</p>
+            <div class="image-top-strip">
+              <div id="dropZone" class="drop-zone" tabindex="0">
+                <input id="imageInput" type="file" accept="image/*" />
+                <div class="drop-zone__copy">
+                  <strong>Drop or paste an image</strong>
+                  <span>Choose a file, drag an image, or press Ctrl+V.</span>
                 </div>
-              </details>
-            </section>
+                <button class="button button--primary" type="button" id="chooseImage">Choose image</button>
+              </div>
+
+              <section class="metadata-panel" aria-label="Image metadata">
+                <details id="metadataDetails" class="collapsible-panel">
+                  <summary class="collapsible-summary">
+                    <span class="collapsible-summary__copy">
+                      <span class="collapsible-summary__title">Image Metadata</span>
+                      <span id="metadataSummary" class="collapsible-summary__meta">No image loaded</span>
+                    </span>
+                    <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                  </summary>
+                  <div class="collapsible-body">
+                    <p id="metadataNote" class="collapsible-help">Load an image to read source metadata.</p>
+                    <div id="metadataGrid" class="metadata-grid"></div>
+                  </div>
+                </details>
+              </section>
+
+              <section class="band-panel" aria-label="Band manipulation">
+                <details id="bandPanelDetails" class="collapsible-panel">
+                  <summary class="collapsible-summary">
+                    <span class="collapsible-summary__copy">
+                      <span class="collapsible-summary__title">Band Manipulation</span>
+                      <span id="bandComposerNote" class="collapsible-summary__meta">Load an image to build RGB and false color composites.</span>
+                    </span>
+                    <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                  </summary>
+                  <div class="collapsible-body">
+                    <div class="form-row">
+                      <label for="bandPresetSelect">Composite preset</label>
+                      <select id="bandPresetSelect"></select>
+                    </div>
+                    <div class="band-channel-grid">
+                      <section class="band-channel-card" aria-label="Red channel">
+                        <strong class="band-channel-title">Red</strong>
+                        <div class="form-row">
+                          <label for="bandRedSelect">Source band</label>
+                          <select id="bandRedSelect"></select>
+                        </div>
+                        <div class="band-stretch-grid">
+                          <div class="form-row">
+                            <label for="bandRedMin">Low</label>
+                            <input id="bandRedMin" type="number" min="0" max="255" step="1" value="0" />
+                          </div>
+                          <div class="form-row">
+                            <label for="bandRedMax">High</label>
+                            <input id="bandRedMax" type="number" min="0" max="255" step="1" value="255" />
+                          </div>
+                        </div>
+                      </section>
+
+                      <section class="band-channel-card" aria-label="Green channel">
+                        <strong class="band-channel-title">Green</strong>
+                        <div class="form-row">
+                          <label for="bandGreenSelect">Source band</label>
+                          <select id="bandGreenSelect"></select>
+                        </div>
+                        <div class="band-stretch-grid">
+                          <div class="form-row">
+                            <label for="bandGreenMin">Low</label>
+                            <input id="bandGreenMin" type="number" min="0" max="255" step="1" value="0" />
+                          </div>
+                          <div class="form-row">
+                            <label for="bandGreenMax">High</label>
+                            <input id="bandGreenMax" type="number" min="0" max="255" step="1" value="255" />
+                          </div>
+                        </div>
+                      </section>
+
+                      <section class="band-channel-card" aria-label="Blue channel">
+                        <strong class="band-channel-title">Blue</strong>
+                        <div class="form-row">
+                          <label for="bandBlueSelect">Source band</label>
+                          <select id="bandBlueSelect"></select>
+                        </div>
+                        <div class="band-stretch-grid">
+                          <div class="form-row">
+                            <label for="bandBlueMin">Low</label>
+                            <input id="bandBlueMin" type="number" min="0" max="255" step="1" value="0" />
+                          </div>
+                          <div class="form-row">
+                            <label for="bandBlueMax">High</label>
+                            <input id="bandBlueMax" type="number" min="0" max="255" step="1" value="255" />
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                    <div class="band-actions">
+                      <button class="button button--small" type="button" id="bandAutoStretch">Auto stretch</button>
+                      <button class="button button--small" type="button" id="bandReset">Reset composite</button>
+                    </div>
+                    <p id="bandComposerStatus" class="form-message">The current composite will appear here after an image is loaded.</p>
+                  </div>
+                </details>
+              </section>
+            </div>
 
             <figure class="preview-frame" id="previewFrame" aria-label="Image preview">
               <div class="canvas-viewport" id="canvasViewport">
@@ -63,110 +140,46 @@
               <figcaption id="previewCaption">Load an image or try a demo sample.</figcaption>
             </figure>
 
-            <section class="metadata-panel" aria-label="Image metadata">
-              <details id="metadataDetails" class="collapsible-panel">
-                <summary class="collapsible-summary">
-                  <span class="collapsible-summary__copy">
-                    <span class="collapsible-summary__title">Image Metadata</span>
-                    <span id="metadataSummary" class="collapsible-summary__meta">No image loaded</span>
-                  </span>
-                  <span class="collapsible-summary__icon" aria-hidden="true"></span>
-                </summary>
-                <div class="collapsible-body">
-                  <p id="metadataNote" class="collapsible-help">Load an image to read source metadata.</p>
-                  <div id="metadataGrid" class="metadata-grid"></div>
-                </div>
-              </details>
-            </section>
+            <div class="image-support-grid">
+              <section class="scene-context mode-section" id="sceneContextPanel" data-visible-modes="geomorphology classification" aria-label="Landscape context">
+                <details id="sceneContextDetails" class="collapsible-panel">
+                  <summary class="collapsible-summary">
+                    <span class="collapsible-summary__copy">
+                      <span class="collapsible-summary__title">Landscape Context</span>
+                      <span id="sceneContextSummary" class="collapsible-summary__meta">Auto</span>
+                    </span>
+                    <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                  </summary>
+                  <div class="collapsible-body">
+                    <p class="collapsible-help">Optional: pick the broad landform to gently guide geomorphology.</p>
+                    <div class="form-row">
+                      <label for="landscapeContextSelect">Major landform</label>
+                      <select id="landscapeContextSelect"></select>
+                    </div>
+                    <div id="sceneClueGrid" class="scene-clue-grid"></div>
+                    <p id="sceneContextStatus" class="form-message">Using image evidence only.</p>
+                  </div>
+                </details>
+              </section>
 
-            <section class="band-panel" aria-label="Band manipulation">
-              <div class="panel-heading">
-                <h2>Band Manipulation</h2>
-                <span id="bandComposerNote">Load an image to build RGB and false color composites.</span>
+              <div class="sample-row" aria-label="Demo images">
+                <button class="sample-tile" type="button" data-sample="granite">
+                  <img alt="Granite gneiss demo sample" id="sample-granite" />
+                  <span>Granite Gneiss</span>
+                </button>
+                <button class="sample-tile" type="button" data-sample="sandstone">
+                  <img alt="Gondwana sandstone demo sample" id="sample-sandstone" />
+                  <span>Gondwana Sandstone</span>
+                </button>
+                <button class="sample-tile" type="button" data-sample="gneiss">
+                  <img alt="Peninsular gneiss demo sample" id="sample-gneiss" />
+                  <span>Peninsular Gneiss</span>
+                </button>
+                <button class="sample-tile" type="button" data-sample="basalt">
+                  <img alt="Deccan basalt demo sample" id="sample-basalt" />
+                  <span>Deccan Basalt</span>
+                </button>
               </div>
-              <div class="form-row">
-                <label for="bandPresetSelect">Composite preset</label>
-                <select id="bandPresetSelect"></select>
-              </div>
-              <div class="band-channel-grid">
-                <section class="band-channel-card" aria-label="Red channel">
-                  <strong class="band-channel-title">Red</strong>
-                  <div class="form-row">
-                    <label for="bandRedSelect">Source band</label>
-                    <select id="bandRedSelect"></select>
-                  </div>
-                  <div class="band-stretch-grid">
-                    <div class="form-row">
-                      <label for="bandRedMin">Low</label>
-                      <input id="bandRedMin" type="number" min="0" max="255" step="1" value="0" />
-                    </div>
-                    <div class="form-row">
-                      <label for="bandRedMax">High</label>
-                      <input id="bandRedMax" type="number" min="0" max="255" step="1" value="255" />
-                    </div>
-                  </div>
-                </section>
-
-                <section class="band-channel-card" aria-label="Green channel">
-                  <strong class="band-channel-title">Green</strong>
-                  <div class="form-row">
-                    <label for="bandGreenSelect">Source band</label>
-                    <select id="bandGreenSelect"></select>
-                  </div>
-                  <div class="band-stretch-grid">
-                    <div class="form-row">
-                      <label for="bandGreenMin">Low</label>
-                      <input id="bandGreenMin" type="number" min="0" max="255" step="1" value="0" />
-                    </div>
-                    <div class="form-row">
-                      <label for="bandGreenMax">High</label>
-                      <input id="bandGreenMax" type="number" min="0" max="255" step="1" value="255" />
-                    </div>
-                  </div>
-                </section>
-
-                <section class="band-channel-card" aria-label="Blue channel">
-                  <strong class="band-channel-title">Blue</strong>
-                  <div class="form-row">
-                    <label for="bandBlueSelect">Source band</label>
-                    <select id="bandBlueSelect"></select>
-                  </div>
-                  <div class="band-stretch-grid">
-                    <div class="form-row">
-                      <label for="bandBlueMin">Low</label>
-                      <input id="bandBlueMin" type="number" min="0" max="255" step="1" value="0" />
-                    </div>
-                    <div class="form-row">
-                      <label for="bandBlueMax">High</label>
-                      <input id="bandBlueMax" type="number" min="0" max="255" step="1" value="255" />
-                    </div>
-                  </div>
-                </section>
-              </div>
-              <div class="band-actions">
-                <button class="button button--small" type="button" id="bandAutoStretch">Auto stretch</button>
-                <button class="button button--small" type="button" id="bandReset">Reset composite</button>
-              </div>
-              <p id="bandComposerStatus" class="form-message">The current composite will appear here after an image is loaded.</p>
-            </section>
-
-            <div class="sample-row" aria-label="Demo images">
-              <button class="sample-tile" type="button" data-sample="granite">
-                <img alt="Granite gneiss demo sample" id="sample-granite" />
-                <span>Granite Gneiss</span>
-              </button>
-              <button class="sample-tile" type="button" data-sample="sandstone">
-                <img alt="Gondwana sandstone demo sample" id="sample-sandstone" />
-                <span>Gondwana Sandstone</span>
-              </button>
-              <button class="sample-tile" type="button" data-sample="gneiss">
-                <img alt="Peninsular gneiss demo sample" id="sample-gneiss" />
-                <span>Peninsular Gneiss</span>
-              </button>
-              <button class="sample-tile" type="button" data-sample="basalt">
-                <img alt="Deccan basalt demo sample" id="sample-basalt" />
-                <span>Deccan Basalt</span>
-              </button>
             </div>
           </section>
 
@@ -179,6 +192,23 @@
                 <option value="classification">Classification</option>
               </select>
             </div>
+
+            <section class="structural-geology-block mode-section" id="structuralGeologyPanel" data-visible-modes="geology">
+              <details id="structuralGeologyDetails" class="collapsible-panel">
+                <summary class="collapsible-summary">
+                  <span class="collapsible-summary__copy">
+                    <span class="collapsible-summary__title">Structural Geology</span>
+                    <span id="structuralGeologySummary" class="collapsible-summary__meta">Load an image to screen for folds, faults, and structural traces.</span>
+                  </span>
+                  <span class="collapsible-summary__icon" aria-hidden="true"></span>
+                </summary>
+                <div class="collapsible-body">
+                  <ul id="structuralGeologyList" class="structural-list">
+                    <li>Likely structural geology calls will appear here in the Geology view only.</li>
+                  </ul>
+                </div>
+              </details>
+            </section>
 
             <form class="pixel-form mode-section" id="pixelClassForm" data-visible-modes="classification" novalidate>
               <h2>Pixel Value Classification</h2>
@@ -221,14 +251,6 @@
               </div>
             </div>
 
-            <div class="panel-block structural-geology-block mode-section" id="structuralGeologyPanel" data-visible-modes="geology">
-              <h2>Structural Geology</h2>
-              <p id="structuralGeologySummary" class="interpretation-summary">Load an image to screen for folds, faults, and structural traces.</p>
-              <ul id="structuralGeologyList" class="structural-list">
-                <li>Likely structural geology calls will appear here in the Geology view only.</li>
-              </ul>
-            </div>
-
             <div class="panel-block geomorphology-block mode-section" data-visible-modes="geomorphology">
               <h2>Geomorphological Interpretation</h2>
               <p id="geomorphologySummary" class="interpretation-summary">Load an image to extract surface-form notes.</p>
@@ -264,13 +286,20 @@
       </section>
     </main>
 
-    <div class="zoom-toolbar" aria-label="Image zoom controls">
-      <button class="zoom-button" type="button" id="zoomOut" aria-label="Zoom out">-</button>
-      <span id="zoomLevel">100%</span>
-      <button class="zoom-button" type="button" id="zoomIn" aria-label="Zoom in">+</button>
-      <button class="zoom-button zoom-button--wide" type="button" id="zoomReset">Reset</button>
+    <div class="zoom-toolbar" aria-label="Image tools">
+      <div class="zoom-toolbar__group" aria-label="Image zoom controls">
+        <button class="zoom-button" type="button" id="zoomOut" aria-label="Zoom out">-</button>
+        <span id="zoomLevel">100%</span>
+        <button class="zoom-button" type="button" id="zoomIn" aria-label="Zoom in">+</button>
+        <button class="zoom-button zoom-button--wide" type="button" id="zoomReset">Reset</button>
+      </div>
+      <span class="toolbar-divider" aria-hidden="true"></span>
+      <div class="zoom-toolbar__group preview-background-toolbar" aria-label="Page background color">
+        <span class="toolbar-label">Page</span>
+        <div id="pageBackgroundPalette" class="background-palette" role="group" aria-label="Page background palette"></div>
+      </div>
     </div>
 
-    <script src="app.js?v=20260421-valley-label"></script>
+    <script src="app.js?v=20260421-page-background-top-panels"></script>
   </body>
 </html>

@@ -6,6 +6,7 @@ sourceCanvas.height = canvas.height;
 const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
 const canvasViewport = document.querySelector("#canvasViewport");
 const calloutLayer = document.querySelector("#calloutLayer");
+const pageBackgroundPalette = document.querySelector("#pageBackgroundPalette");
 const dropZone = document.querySelector("#dropZone");
 const imageInput = document.querySelector("#imageInput");
 const chooseImage = document.querySelector("#chooseImage");
@@ -57,6 +58,15 @@ const zoomIn = document.querySelector("#zoomIn");
 const zoomReset = document.querySelector("#zoomReset");
 const zoomLevel = document.querySelector("#zoomLevel");
 
+const PAGE_BACKGROUND_STORAGE_KEY = "geoImageClassifier.pageBackground";
+const pageBackgroundOptions = [
+  { id: "paper", label: "Paper", color: "#eef5f0" },
+  { id: "mist", label: "Mist", color: "#e9f0ed" },
+  { id: "sky", label: "Sky", color: "#e7eef5" },
+  { id: "sand", label: "Sand", color: "#f3efe4" },
+  { id: "blush", label: "Blush", color: "#f4e8ee" },
+];
+
 let sourceBandSet = {
   width: canvas.width,
   height: canvas.height,
@@ -77,6 +87,7 @@ const state = {
   classificationLabelSource: "both",
   primaryLandscape: "auto",
   sceneClues: [],
+  pageBackground: loadStoredPageBackground(),
   zoom: 1,
   bandComposer: {
     presetId: "custom",
@@ -336,10 +347,10 @@ const categoryPacks = {
         weights: { brightness: 0.36, saturation: 0.24, warm: 0.38, texture: 0.5, edge: 0.68, banding: 0.5, darkness: 0.58 },
       },
       {
-        id: "snow-covered-mountain-terrain",
-        label: "Snow-Covered Mountain Terrain",
+        id: "rugged-mountain-terrain",
+        label: "Rugged Mountain Terrain",
         family: "Geomorphology",
-        cues: ["bright snow-covered relief", "strong ridge-shadow contrast", "high mountain terrain expression"],
+        cues: ["bright or high-relief mountain texture", "strong ridge-shadow contrast", "rugged mountain terrain expression"],
         weights: { brightness: 0.56, saturation: 0.12, warm: 0.48, texture: 0.86, edge: 0.92, banding: 0.18, darkness: 0.42 },
       },
       {
@@ -930,6 +941,41 @@ function selectedSceneClueSet() {
   return new Set(state.sceneClues);
 }
 
+function effectiveSceneClueSet() {
+  const explicit = selectedSceneClueSet();
+  const effective = new Set(explicit);
+
+  switch (state.primaryLandscape) {
+    case "plain":
+      effective.add("low-relief-plain");
+      break;
+    case "plateau":
+      effective.add("bench-plateau");
+      break;
+    case "hill":
+      if (explicit.has("linear-ridges-breaks")) {
+        effective.add("steep-mountain");
+      }
+      break;
+    case "hill-range":
+      effective.add("steep-mountain");
+      effective.add("linear-ridges-breaks");
+      break;
+    case "sea-coast":
+    case "water-body":
+      effective.add("low-relief-plain");
+      break;
+    case "snow-ice":
+      effective.add("snow-ice");
+      effective.add("steep-mountain");
+      break;
+    default:
+      break;
+  }
+
+  return effective;
+}
+
 function selectedLandscapeContextLabel() {
   return landscapeContextOptions.find((item) => item.id === state.primaryLandscape)?.label || "Auto";
 }
@@ -977,6 +1023,10 @@ function sceneContextHeaderSummaryText() {
   return parts.length ? parts.join(" | ") : "Auto";
 }
 
+function hasLandscapeGuidance() {
+  return state.primaryLandscape !== "auto" || state.sceneClues.length > 0;
+}
+
 function renderSceneClueControls() {
   landscapeContextSelect.innerHTML = landscapeContextOptions
     .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`)
@@ -1018,6 +1068,27 @@ function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizePageBackground(color) {
+  const match = String(color || "").trim().match(/^#([0-9a-f]{6})$/i);
+  return match ? `#${match[1].toLowerCase()}` : "#eef5f0";
+}
+
+function loadStoredPageBackground() {
+  try {
+    return normalizePageBackground(window.localStorage.getItem(PAGE_BACKGROUND_STORAGE_KEY));
+  } catch (error) {
+    return "#eef5f0";
+  }
+}
+
+function storePageBackground(color) {
+  try {
+    window.localStorage.setItem(PAGE_BACKGROUND_STORAGE_KEY, normalizePageBackground(color));
+  } catch (error) {
+    // Ignore storage failures; the palette still works for the current session.
+  }
+}
+
 function percent(value) {
   return `${Math.round(clamp(value) * 100)}%`;
 }
@@ -1031,6 +1102,8 @@ function setup() {
   updateCatalogStatus();
   updateVisibleSections();
   createSampleImages();
+  renderPageBackgroundPalette();
+  applyPageBackground(state.pageBackground, { persist: false });
   bindEvents();
   renderEmptyMetrics();
   renderEmptyMetadata();
@@ -1186,6 +1259,7 @@ function bindEvents() {
   zoomOut.addEventListener("click", () => setZoom(state.zoom - 0.25));
   zoomIn.addEventListener("click", () => setZoom(state.zoom + 0.25));
   zoomReset.addEventListener("click", () => setZoom(1));
+  pageBackgroundPalette.addEventListener("click", handlePageBackgroundSelection);
 
   categoryForm.addEventListener("submit", addCategory);
 }
@@ -2927,6 +3001,38 @@ function setZoom(nextZoom) {
   window.requestAnimationFrame(updateCalloutPositions);
 }
 
+function renderPageBackgroundPalette() {
+  pageBackgroundPalette.innerHTML = pageBackgroundOptions.map((option) => `
+    <button
+      class="background-swatch${option.color === state.pageBackground ? " is-active" : ""}"
+      type="button"
+      data-color="${escapeHtml(option.color)}"
+      title="${escapeHtml(option.label)}"
+      aria-label="${escapeHtml(option.label)} page background"
+      aria-pressed="${option.color === state.pageBackground ? "true" : "false"}"
+      style="--swatch-color: ${escapeHtml(option.color)};"
+    ></button>
+  `).join("");
+}
+
+function handlePageBackgroundSelection(event) {
+  const button = event.target.closest(".background-swatch");
+  if (!button) {
+    return;
+  }
+  applyPageBackground(button.dataset.color || loadStoredPageBackground());
+}
+
+function applyPageBackground(color, { persist = true } = {}) {
+  const nextColor = normalizePageBackground(color);
+  state.pageBackground = nextColor;
+  document.documentElement.style.setProperty("--page-background", nextColor);
+  if (persist) {
+    storePageBackground(nextColor);
+  }
+  renderPageBackgroundPalette();
+}
+
 function analyzeCurrentCanvas() {
   const features = extractFeatures();
   refreshClassificationOptions(features);
@@ -3101,11 +3207,64 @@ function clueBias(clueSet, boosts = [], penalties = []) {
   return bias;
 }
 
+function explicitGeomorphologyHintAdjustment(categoryId, explicitClueSet, signals) {
+  let bias = 0;
+  let gatePenalty = 0;
+
+  const hasDrainage = explicitClueSet.has("drainage-incision");
+  const hasRidges = explicitClueSet.has("linear-ridges-breaks");
+  const hasStepped = explicitClueSet.has("bench-plateau");
+  const hasVolcanic = explicitClueSet.has("volcanic-surface");
+  const hasExplicitHints = hasDrainage || hasRidges || hasStepped || hasVolcanic;
+
+  if (hasDrainage) {
+    if (categoryId === "glacial-valley") bias += 0.2;
+    if (categoryId === "drainage-trace") bias += 0.18;
+    if (categoryId === "dissected-terrain") bias += 0.1;
+    if (categoryId === "alluvial-fan") bias += 0.06;
+    if (categoryId === "smooth-plain") gatePenalty -= 0.12;
+  }
+
+  if (hasRidges) {
+    if (categoryId === "alpine-ridge-arete") bias += 0.22;
+    if (categoryId === "fault-scarp") bias += 0.14;
+    if (categoryId === "structural-lineament") bias += 0.12;
+    if (categoryId === "glacial-valley") bias += 0.06;
+    if (categoryId === "smooth-plain") gatePenalty -= 0.12;
+    if (categoryId === "alluvial-fan") gatePenalty -= 0.06;
+  }
+
+  if (hasStepped) {
+    if (categoryId === "stratified-slope") bias += 0.22;
+    if (categoryId === "fault-scarp") bias += 0.08;
+    if (categoryId === "volcanic-flow-surface") bias += 0.06;
+    if (categoryId === "smooth-plain") gatePenalty -= 0.08;
+  }
+
+  if (hasVolcanic) {
+    if (categoryId === "volcanic-flow-surface") bias += 0.24;
+    if (categoryId === "weathered-regolith") bias += 0.06;
+    if (categoryId === "rugged-mountain-terrain") gatePenalty -= 0.16;
+    if (categoryId === "glacier-icefield") gatePenalty -= 0.18;
+  }
+
+  if (hasExplicitHints && state.primaryLandscape !== "snow-ice") {
+    if (categoryId === "rugged-mountain-terrain" && signals.relief < 0.48 && signals.edge < 0.52) {
+      gatePenalty -= 0.12;
+    }
+    if (categoryId === "glacier-icefield" && signals.snow < 0.72) {
+      gatePenalty -= 0.16;
+    }
+  }
+
+  return { bias, gatePenalty };
+}
+
 function primaryLandscapeBias(categoryId, primaryLandscape) {
   let bias = 0;
   let gatePenalty = 0;
   const highMountainCategories = new Set([
-    "snow-covered-mountain-terrain",
+    "rugged-mountain-terrain",
     "glacier-icefield",
     "glacial-valley",
     "alpine-ridge-arete",
@@ -3139,7 +3298,7 @@ function primaryLandscapeBias(categoryId, primaryLandscape) {
       if (categoryId === "alpine-ridge-arete") bias += 0.16;
       if (categoryId === "glacial-valley") bias += 0.12;
       if (categoryId === "structural-lineament" || categoryId === "fault-scarp") bias += 0.08;
-      if (categoryId === "snow-covered-mountain-terrain") bias += 0.08;
+      if (categoryId === "rugged-mountain-terrain") bias += 0.08;
       if (categoryId === "smooth-plain" || categoryId === "dune-sand-sheet") gatePenalty -= 0.14;
       break;
     case "sea-coast":
@@ -3156,7 +3315,7 @@ function primaryLandscapeBias(categoryId, primaryLandscape) {
       if (highMountainCategories.has(categoryId) || categoryId === "volcanic-flow-surface") gatePenalty -= 0.18;
       break;
     case "snow-ice":
-      if (categoryId === "snow-covered-mountain-terrain") bias += 0.22;
+      if (categoryId === "rugged-mountain-terrain") bias += 0.18;
       if (categoryId === "glacier-icefield") bias += 0.24;
       if (categoryId === "glacial-valley") bias += 0.18;
       if (categoryId === "alpine-ridge-arete") bias += 0.1;
@@ -3172,11 +3331,13 @@ function primaryLandscapeBias(categoryId, primaryLandscape) {
 }
 
 function applyGeomorphologyAdjustments(category, features) {
-  const clueSet = selectedSceneClueSet();
+  const explicitClueSet = selectedSceneClueSet();
+  const clueSet = effectiveSceneClueSet();
   const signals = geomorphologySignals(features);
   const landscapeBias = primaryLandscapeBias(category.id, state.primaryLandscape);
-  let bias = landscapeBias.bias;
-  let gatePenalty = landscapeBias.gatePenalty;
+  const explicitHintBias = explicitGeomorphologyHintAdjustment(category.id, explicitClueSet, signals);
+  let bias = landscapeBias.bias + explicitHintBias.bias;
+  let gatePenalty = landscapeBias.gatePenalty + explicitHintBias.gatePenalty;
 
   switch (category.id) {
     case "smooth-plain":
@@ -3247,18 +3408,18 @@ function applyGeomorphologyAdjustments(category, features) {
         gatePenalty -= 0.06;
       }
       break;
-    case "snow-covered-mountain-terrain":
+    case "rugged-mountain-terrain":
       bias += clueBias(clueSet,
         [
           { id: "steep-mountain", amount: 0.16 },
-          { id: "snow-ice", amount: 0.2 },
+          { id: "snow-ice", amount: 0.08 },
         ],
         [
           { id: "low-relief-plain", amount: 0.22 },
           { id: "sand-sheet", amount: 0.12 },
           { id: "volcanic-surface", amount: 0.06 },
         ]);
-      if (signals.relief < 0.5 || signals.snow < 0.34) {
+      if (signals.relief < 0.5 || (signals.edge < 0.48 && signals.texture < 0.52)) {
         gatePenalty -= 0.28;
       }
       break;
@@ -3515,6 +3676,9 @@ function runPixelClassification() {
   const mergeMessage = classification.rawClassCount > classification.classes.length
     ? ` Merged ${classification.rawClassCount} pixel bins into ${classification.classes.length} interpreted classes.`
     : "";
+  const landscapeNote = hasLandscapeGuidance() && state.classificationLabelSource !== "geology"
+    ? " Landscape context is guiding geomorphology-based class labels."
+    : "";
 
   if (smallestClass < 0.01) {
     const smallestLabel = formatPixelPercent(smallestClass);
@@ -3522,14 +3686,14 @@ function runPixelClassification() {
       item.included = item.percent >= 0.01;
     });
     state.lastPixelClassification = { classification, stats };
-    renderPixelClassMessage(`Classes below 1% start unchecked. Smallest class is ${smallestLabel}; use the checkboxes to review or hide classes.${mergeMessage}`, "success");
+    renderPixelClassMessage(`Classes below 1% start unchecked. Smallest class is ${smallestLabel}; use the checkboxes to review or hide classes.${mergeMessage}${landscapeNote}`, "success");
     renderPixelClassResults(classification, stats);
     renderSourceImage({ restoreCaption: true });
     applyPixelClassificationOverlay(classification, stats);
     return;
   }
 
-  renderPixelClassMessage(`Accepted: ${classification.classes.length.toLocaleString()} interpreted classes from low ${stats.low} to high ${stats.high}, labeled from ${classificationSourceLabel()}. Use each result checkbox to show or hide that class.${mergeMessage}`, "success");
+  renderPixelClassMessage(`Accepted: ${classification.classes.length.toLocaleString()} interpreted classes from low ${stats.low} to high ${stats.high}, labeled from ${classificationSourceLabel()}. Use each result checkbox to show or hide that class.${mergeMessage}${landscapeNote}`, "success");
   state.lastPixelClassification = { classification, stats };
   renderPixelClassResults(classification, stats);
   applyPixelClassificationOverlay(classification, stats);
@@ -3703,9 +3867,18 @@ function suggestVisibleCategory(item, stats, features, categoryResults, usedGeol
   const brightness = midpoint / 255;
   const darkness = 1 - brightness;
   const rankedBias = new Map(categoryResults.map((item, index) => [item.optionKey || item.id, Math.max(0, 0.14 - index * 0.018)]));
+  const landscapeGuided = hasLandscapeGuidance();
   const candidates = selectedCategories
     .map((category) => {
       const alreadyUsedPenalty = usedGeologyLabels.has(category.label) ? 0.08 : 0;
+      const rankedBiasValue = rankedBias.get(category.optionKey || category.id) || 0;
+      const contextSourceBias = landscapeGuided && state.classificationLabelSource !== "geology"
+        ? category.sourcePack === "geomorphology"
+          ? 0.08 + (category.score || 0) * 0.12 + (category.confidence || 0) * 0.04
+          : state.classificationLabelSource === "both"
+            ? -0.015
+            : 0
+        : 0;
       const score =
         distanceScore(brightness, category.weights.brightness, 0.28) * 0.34 +
         distanceScore(darkness, category.weights.darkness, 0.28) * 0.22 +
@@ -3713,7 +3886,8 @@ function suggestVisibleCategory(item, stats, features, categoryResults, usedGeol
         distanceScore(features.texture, category.weights.texture, 0.42) * 0.12 +
         distanceScore(features.edge, category.weights.edge, 0.42) * 0.08 +
         distanceScore(features.banding, category.weights.banding, 0.42) * 0.08 +
-        (rankedBias.get(category.optionKey || category.id) || 0) -
+        rankedBiasValue +
+        contextSourceBias -
         alreadyUsedPenalty;
 
       return { category, score };
@@ -3722,7 +3896,9 @@ function suggestVisibleCategory(item, stats, features, categoryResults, usedGeol
 
   const best = candidates[0].category;
   const tone = describePixelTone(brightness);
-  const reason = `${tone} pixels are closest to ${best.label} using brightness plus image texture, color, edge, and banding cues.`;
+  const reason = landscapeGuided && best.sourcePack === "geomorphology" && state.classificationLabelSource !== "geology"
+    ? `${tone} pixels are closest to ${best.label} using brightness plus image texture, color, edge, banding, and the current landscape context.`
+    : `${tone} pixels are closest to ${best.label} using brightness plus image texture, color, edge, and banding cues.`;
 
   return {
     label: best.label,
@@ -4318,8 +4494,8 @@ function interpretGeomorphology(top, features) {
     notes.push("Priority interpretation: compare roughness, flow-like margins, dark tone, step-like trap surfaces, and drainage disruption to separate Deccan Trap terrain from shadowed slopes.");
   }
 
-  if (top.id === "snow-covered-mountain-terrain") {
-    notes.push("Priority interpretation: compare snow-cover continuity, exposed rock windows, ridge-shadow relief, and drainage incision to separate mountain snow terrain from clouds or blank bright surfaces.");
+  if (top.id === "rugged-mountain-terrain") {
+    notes.push("Priority interpretation: compare ridge-shadow relief, exposed rock or snow patches, slope breaks, and drainage incision to separate rugged mountain terrain from bright plains or cloud-like surfaces.");
   }
 
   if (top.id === "glacier-icefield") {
